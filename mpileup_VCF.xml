@@ -1,0 +1,297 @@
+<tool id="sam_mpileup" name="Generate mpileup" version="1.1.1">
+  <description>from BAM dataset</description>
+  <requirements>
+    <requirement type="package">samtools</requirement>
+  </requirements>
+  <command interpreter="python">
+    mpileup_VCF.py
+      --input1=$input1
+      --output=$output1
+      --ref=$refOrHistory.reference
+      #if $refOrHistory.reference == "history":
+        --ownFile=$refOrHistory.ownFile
+      #else:
+        --ownFile="None"
+      #end if
+       --dbkey=${input1.metadata.dbkey}
+       --indexDir=${GALAXY_DATA_INDEX_DIR}
+       --bamIndex=${input1.metadata.bam_index}
+       --baq=$baq
+       --mapCo=$mapCo
+       --mapCap=$mapCap
+       --readCap=$readCap
+       --mapq=$mapq
+       --baseq=$baseq
+       --callindels=$callindels
+       --indels=$indels
+       --consensus=$c.consensus
+       --fformat=$fformat
+ <!--      chs_cmdline=$chs_cmd.chs_cmdline  -->
+        --cmdline=$cmdline
+
+      #if $c.consensus == "yes":
+        --theta=$c.theta
+        --hapNum=$c.hapNum
+        --fraction=$c.fraction
+        --phredProb=$c.phredProb
+       #else:
+        --theta="None"
+        --hapNum="None"
+        --fraction="None"
+        --phredProb="None"
+      #end if
+
+<!--      #if $chs_cmd.chs_cmdline == "yes":
+      #else:
+        cmdline="None"
+      #end if    -->
+  </command>
+
+<!-- File selection -->
+  <inputs>
+    <conditional name="refOrHistory">
+      <param name="reference" type="select" label="Will you select a reference genome from your history or use a built-in index?">
+        <option value="indexed">Use a built-in index</option>
+        <option value="history">Use one from the history</option>
+      </param>
+      <when value="indexed">
+        <param name="input1" type="data" format="bam" label="Select the BAM file to generate the mpileup file for">
+           <validator type="unspecified_build" />
+           <validator type="dataset_metadata_in_file" filename="sam_fa_indices.loc" metadata_name="dbkey" metadata_column="1" message="Sequences are not currently available for the specified build." line_startswith="index" />
+        </param>
+      </when>
+      <when value="history">
+        <param name="input1" type="data" format="bam" label="Select the BAM file to generate the mpileup file for" />
+        <param name="ownFile" type="data" format="fasta" metadata_name="dbkey" label="Select a reference genome" />
+      </when>
+    </conditional>
+
+<!-- use input mask or command line for all following options-->
+<!-- use input mask or command line for all following options-->
+
+
+	<!--INPUT -B BAQ Disable probabilistic realignment-->
+	    <param name="baq" type="select" label="Disable probabilistic realignment for the computation of base alignment quality (BAQ)?" help="Applying BAQ greatly helps to reduce false SNPs caused by misalignments but can also eat real SNPs.">
+	      <option value="no">Default (apply BAQ)</option>
+	      <option value="yes">disable BAQ</option>
+	    </param>
+
+	<!--INPUT  -C 50 coefficient for downgrading mapping quality -->
+	    <param name="mapCo" type="integer" value="50" label="Coefficient for downgrading mapping quality for reads containing excessive mismatches." help="A zero value disables this functionality; if enabled, the recommended value for BWA is 50."/>
+
+	<!--INPUT  -M 50 capMapQ  -->
+	    <param name="mapCap" type="integer" value="60" label="Where to cap mapping quality" />
+
+	<!--INPUT  -d 24 At a position, read maximally INT reads per input BAM.-->
+	    <param name="readCap" type="integer" value="24" label="Maximum number of reads per position" help="set in accordance to coverage. e.g. 3x avg. cov."/>
+	<!--        <conditional name="d"> -->
+
+	<!--INPUT -q 30 INT 	Minimum mapping quality for an alignment to be used [0] -->
+	    <param name="mapq" type="integer" value="30" label="Minimum mapping quality for an alignment to be used" />
+	<!--        <conditional name="q"> -->
+
+	<!--INPUT -Q 30 INT 	Minimum base quality for a base to be considered [13] -->
+	    <param name="baseq" type="integer" value="30" label="Minimum basecall quality for a position to be used" />
+	<!--       <conditional name="Q"> -->
+
+	<!--INPUT "yes"; "no"->   -I  Do not perform INDEL calling -->
+	    <param name="callindels" type="select" label="Whether or not to call indels">
+	      <option value="yes">Call indels</option>
+	      <option value="no">Do NOT call indels</option>
+	    </param>
+
+	<!--OUTPUT  -i -->
+	    <param name="indels" type="select" label="Print ONLY output lines containing indels">
+	      <option value="no">Print all lines</option>
+	      <option value="yes">Print only lines containing indels</option>
+	    </param>
+
+	<!--OUTPUT  -c -->
+	     <conditional name="c"> 
+	      <param name="consensus" type="select" label="Call consensus according to MAQ model (10-column pileup)?">
+		<option selected="true" value="no">No</option>
+		<option value="yes">Yes</option>
+	      </param> 
+	      <when value="no" />
+	      <when value="yes">
+		<param name="theta" type="float" value="0.85" label="Theta parameter (error dependency coefficient) in the MAQ consensus calling model" />
+		<param name="hapNum" type="integer" value="2" label="Number of haplotypes in the sample" help="Greater than or equal to 2" />
+		<param name="fraction" type="float" value="0.001" label="Expected fraction of differences between a pair of haplotypes" />
+		<param name="phredProb" type="integer" value="40" label="Phred probability of an indel in sequencing/prep" />
+	      </when>
+	    </conditional>
+
+	<!--OUTPUT  pileup or -u (.bcf for .vcf)-->
+	    <param name="fformat" type="select" label="Output as pileup or vcf format" help="use pileup for genomic interval computations, vcf for variant effect prediction">
+	      <option value="vcf">vcf 4.1 format</option>
+	      <option value="pileup">pileup format</option>
+	    </param>
+
+ <!--   <conditional name="chs_cmd"> 
+      <param name="chs_cmdline" type="select" label="Use Command Line directly?" help="This overrides all previous option choices">
+        <option selected="no" value="no">No</option>
+        <option value="yes">Yes</option>
+      </param> 
+      <when value="no" />
+      <when value="yes">
+
+      </when>
+    </conditional> -->
+
+      <param name="cmdline" type="text" value="" label="direct command line options" help="please refer to samtools documentation for use of the command line e.g. -r 2:100,000-150,000"/>
+
+  </inputs>
+
+  <outputs>
+    <data format="tabular" name="output1" label="${tool.name} on ${on_string}: converted pileup" />
+  </outputs>
+ 
+<!-- END OF OPTIONS -->
+
+    <tests>
+    <test>  
+      <!--
+      Bam to pileup command:
+      samtools faidx chr_m.fasta
+      samtools mpileup -B -C 50 -M 60 -d 24 -q 30 -Q 30 -u -f chr_m.fasta test-data/sam_pileup_in1.bam > sam_pileup_out1.pileup
+      chr_m.fasta is the prefix of the index
+      -->  
+      <param name="reference" value="history" />
+      <param name="input1" value="sam_pileup_in1.bam" ftype="bam" />
+      <param name="ownFile" value="Zv9.65.fa" ftype="fasta" dbkey="Zv9.65" />
+      <param name="baq" value="yes" />      
+      <param name="mapCo" value="50" />      
+      <param name="mapCap" value="60" />
+      <param name="readCap" value="24" />
+      <param name="mapq" value="30" />
+      <param name="baseq" value="30" />
+      <param name="callindels" value="yes" />
+      <param name="indels" value="no" />
+      <param name="format" value="vcf" />
+      <param name="consensus" value="no" />
+      <param name="cmdline" value="" />
+      <output name="output1" file="sam_pileup_out1.pileup" />
+    </test>
+    <test>
+      <!--  
+      Bam to pileup command:
+      samtools mpileup -M 60 -c -T 0.85 -N 2 -r 0.001 -I 40 -f chr_m.fasta test-data/sam_pileup_in1.bam > sam_pileup_out2.pileup
+      chr_m.fasta is the prefix of the index
+      -->
+      <param name="reference" value="indexed" />
+      <param name="input1" value="sam_pileup_in1.bam" ftype="bam" dbkey="Zv9.65" />
+      <param name="baq" value="yes" />      
+      <param name="mapCo" value="50" />      
+      <param name="mapCap" value="60" />
+      <param name="readCap" value="24" />
+      <param name="mapq" value="30" />
+      <param name="baseq" value="30" />
+      <param name="callindels" value="yes" />
+      <param name="indels" value="no" />
+      <param name="format" value="vcf" />
+      <param name="consensus" value="yes" />
+      <param name="theta" value="0.85" />
+      <param name="hapNum" value="2" />
+      <param name="fraction" value="0.001" />
+      <param name="phredProb" value="40" />
+      <param name="cmdline" value="" />
+      <output name="output1" file="sam_pileup_out2.pileup" />
+    </test> 
+  </tests>
+
+
+  <help>
+**What it does**
+
+Uses SAMTools_' mpileup command to produce a mpileup dataset from a provided BAM dataset. It generates a .vcf or pileup format dataset depending on the specified options. If *Call consensus according to MAQ model?* option is set to **No**, the tool produces simple pileup. If the option is set to **Yes**, a ten column pileup dataset with consensus is generated. Both types of pileup datasets are briefly summarized below.
+
+.. _SAMTools: http://samtools.sourceforge.net/samtools.shtml
+
+------
+
+**The Variant Call Format (VCF)**
+
+The Variant Call Format (VCF) is the emerging standard for storing variant data. Originally designed for SNPs and short INDELs, it also works for structural variations.
+
+VCF consists of a header section and a data section. The header must contain a line starting with one '#', showing the name of each field, and then the sample names starting at the 10th column. The data section is TAB delimited with each line consisting of at least 8 mandatory fields (the first 8 fields in the table below). The FORMAT field and sample information are allowed to be absent. We refer to the official VCF spec for a more rigorous description of the format.
+
+**VCF Table**::
+
+  Column Field     Description
+ ------- --------- ----------------------------------------------
+       1 CHROM     Chromosome name
+       2 POS       1-based position. For an indel, this is the position preceding the indel.
+       3 ID        Variant identifier. Usually the dbSNP rsID.
+       4 REF       Reference sequence at POS involved in the variant. For a SNP, it is a single base.
+       5 ALT       Comma delimited list of alternative seuqence(s).
+       6 QUAL      Phred-scaled probability of all samples being homozygous reference.
+       7 FILTER    Semicolon delimited list of filters that the variant fails to pass.
+       8 INFO      Semicolon delimited list of variant information.
+       9 FORMAT    Colon delimited list of the format of individual genotypes in the following fields.
+      10 Sample(s) Individual genotype information defined by FORMAT.
+
+
+------
+
+**Types of pileup datasets**
+
+The description of pileup format below is largely based on information that can be found on SAMTools Pileup_ documentation page. The 6- and 10-column variants are described below.
+
+.. _Pileup: http://samtools.sourceforge.net/pileup.shtml
+
+**Six column pileup**::
+
+    1    2  3  4        5        6
+ ---------------------------------
+ chrM  412  A  2       .,       II
+ chrM  413  G  4     ..t,     IIIH
+ chrM  414  C  4     ...a     III2
+ chrM  415  C  4     TTTt     III7
+   
+where::
+
+  Column Definition
+ ------- ----------------------------
+       1 Chromosome
+       2 Position (1-based)
+       3 Reference base at that position
+       4 Coverage (# reads aligning over that position)
+       5 Bases within reads where (see Galaxy wiki for more info)
+       6 Quality values (phred33 scale, see Galaxy wiki for more)
+       
+**Ten column pileup**
+
+The `ten-column` (consensus_) pileup incorporates additional consensus information generated with *-c* option of *samtools pileup* command::
+
+
+    1    2  3  4   5   6   7   8       9       10
+ ------------------------------------------------
+ chrM  412  A  A  75   0  25  2       .,       II
+ chrM  413  G  G  72   0  25  4     ..t,     IIIH
+ chrM  414  C  C  75   0  25  4     ...a     III2
+ chrM  415  C  T  75  75  25  4     TTTt     III7
+
+where::
+
+  Column Definition
+ ------- --------------------------------------------------------
+       1 Chromosome
+       2 Position (1-based)
+       3 Reference base at that position
+       4 Consensus bases
+       5 Consensus quality
+       6 SNP quality
+       7 Maximum mapping quality
+       8 Coverage (# reads aligning over that position)
+       9 Bases within reads where (see Galaxy wiki for more info)
+      10 Quality values (phred33 scale, see Galaxy wiki for more)
+
+
+.. _consensus: http://samtools.sourceforge.net/cns0.shtml
+
+
+  </help>
+
+</tool>
+
+

@@ -1,0 +1,38 @@
+# make combined weight table
+for (chr in 1:25)
+
+{
+	weightpath = paste("/media/DATA2/galaxy/upload/MGH_map/chr",chr,"_cM", sep="")
+	weighttable <- read.table(file = weightpath, header = FALSE)
+	x = nrow(weighttable)
+	weighttable$V4[1] = 0
+	for (i in 2:x)
+	{
+	weighttable$V4[i] = (weighttable$V3[i]-weighttable$V3[i-1]) 
+	}
+	write.table(weighttable, file = "~/allchrweights", append = TRUE, quote = FALSE, sep = "\t",col.names = FALSE)
+}
+
+
+
+
+# make combined weight table per cM
+for (chr in 1:25)
+
+{
+	weightpath = paste("/media/DATA2/galaxy/upload/MGH_map/chr",chr,"_cM", sep="")
+	weighttable <- read.table(file = weightpath, header = FALSE)
+        x = max(weighttable$V2)
+        weighttable2 = matrix(ncol=4, nrow=x)
+	for (i in 1:x)
+	{
+	weighttable2[i,1] = weighttable$V1[weighttable$V2==i]
+	weighttable2[i,2] = weighttable$V2[weighttable$V2==i]
+	weighttable2[i,3] = weighttable$V3[weighttable$V2==i]
+        weighttable2[i,4] = (weighttable$V3[weighttable$V2 == i]-weighttable$V3[weighttable$V2 == i-1]) 
+	}
+	write.table(weighttable2, file = "~/allchrweights2", append = TRUE, quote = FALSE, sep = "\t",col.names = FALSE)
+}
+
+
+

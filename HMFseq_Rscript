@@ -1,0 +1,464 @@
+#############################################
+# Homozygosity Mapper v1.0
+# by Nikolaus Obholzer, 2011
+# License: GPL
+############################################# R --min-vsize=10M --max-vsize=8G --min-nsize=10M --max-nsize=8G
+############################################# 
+##########################################################################################################################################
+##########################################################################################################################################
+#
+#
+# Calculates hom vs het SNP densities from total SNPs with 4 columns for ALL SNPs on ALL chromosomes: "Chr","Pos","AlleleFreq", and "Coverage".
+# The format of the input file is tab-delimited text as downloaded from Galaxy. Any column labels/ headers will be ignored.
+#
+#
+##########################################################################################################################################
+##########################################################################################################################################
+#args <- c("/home/galaxy/Downloads/Galaxy91-[y34MT_Coverage_Extractor_on_data_90].tabular","/home/ian/Downloads/Galaxy263-[Coverage_Extractor_on_data_261].tabular", "test","test","test") 
+# use for debugging
+# args= c("/home/galaxy/Desktop/Coverage_Extractor.tabular","/home/galaxy/Desktop/out_table.txt","/home/galaxy/Desktop/genome.png","/home/galaxy/Desktop/chromosome.png","an158-3","/home/galaxy/galaxy-dist","/home/galaxy/Desktop/out_table2.txt","9")
+
+args <- commandArgs(TRUE)
+
+cat("MegaMapper initialized.\n")
+##############################################
+##############################################
+# Define general variables
+# SNP data file path 
+
+snpfilepath <- args[1]
+megamapper_dir = paste(args[6], "/tools/MegaMapper/",sep="") 
+
+# Read in SNPs from txt file	
+snps0 <- read.table(file = snpfilepath, header = FALSE, comment.char ="#", sep="\t") # read in SNP file
+counter = nrow(snps0) #determine number of entries(rows) in table
+colnames(snps0) <- c("Chr","Pos","AlleleFreq","Coverage")	#annotate table
+cutoff = as.integer(toString(args[8]))
+bfilter = toString(args[9])
+
+cat("Lower SNP coverage cutoff is: ", cutoff , "\n")
+cat("Is ratio inversion filter used: ", bfilter , "\n")
+
+# snps0 = snps0[snps0$Coverage>9 ,]
+snps0 = snps0[snps0$Coverage>cutoff,]
+
+
+Mname <- "YOUR_SAMPLE_NAME_HERE"
+Mname <- args[5] #"test" # name of mutant to be analyzed
+
+#print(paste(counter," unique SNPs.")) # for debugging
+#################################################################################################################
+# Zv9.60 genome parameters: Chromosome lenghts
+#
+mutChrom <- c(1:25)	# prepare vector for comparing homozygosity between chromosomes
+mutChrom2 <- c(1:25)	# prepare vector for comparing max hom/het ratio between chromosomes
+chrLengths <- c(1:25)	# a bit tedious but Notepad otherwise creates linebreaks that cause errors in R when text is cut/pasted
+chrLengths[1:10] = c(60348388,60300536,63268876,62094675,75682077,59938731,77276063,56184765,58232459,46591166)
+chrLengths[11:20] = c(46661319,50697278,54093808,53733891,47442429,58780683,53984731,49877488,50254551,55952140)
+chrLengths[21:25] = c(44544065,42261000,46386876,43947580,38499472) # chromosome 1-25 lengths of Zv9
+
+#################################################################################################################
+#################################################################################################################
+#1## Part1: Plot SNPs by zygosity for each chromosome and pick mutant chromosome (highest degree of homozygosity)
+Nbreaks2 <- 300 # number of bins for all following histograms
+#pdf(args[3]) # prepare output file
+png(args[3], width = 600, height = 800, bg = "white") # prepare output file
+#print (args[3]) # for debugging
+
+par(oma=c(4,0.5,2,0.5), mar=c(2.5,2.5,0.5,2), mfrow = c(5,5)) # prepare graph panels
+#########################
+#scale the y-axis limit based on the max counts in the histograms of chromosome 1 *1.1
+z <- subset(snps0, snps0$Chr == 1) 	# take  SNPs of single chromosome as subset of all
+# prepare sequence of bins for current chromosome to ensure equal binning for all plots
+p0 <- hist (z$Pos, breaks = Nbreaks2, plot = FALSE)  
+# prepare sequence of bins for current chromosome
+bins = p0$breaks
+# generate and store het SNP density histogram data
+p1 <- hist (subset(z$Pos, z$AlleleFreq < 0.9), breaks = bins, plot = FALSE) 
+# generate and store hom SNP density histogram data
+p2 <- hist (subset(z$Pos, z$AlleleFreq > 0.9), breaks = bins, plot = FALSE) 
+
+Yscale <- max(p1$counts,p2$counts)
+Yscale <- signif(Yscale, digits=2)
+#########################
+mutChrom_t = rep(0, 25)
+mutChrom_t0 = rep(0, 25)
+mutChrom_t1 = rep(0, 25)
+mutChrom_t2 = rep(0, 25)
+mutChrom_t3 = rep(0, 25)
+
+# begin for loop to process all chromosomes
+for (x in 1:25)	
+{
+y <- toString(x)	 		# prepare current chromosome name as string
+z <- subset(snps0, snps0$Chr == y) 	# take  SNPs of single chromosome as subset of all
+
+# prepare sequence of bins for current chromosome to ensure equal binning for all plots
+p0 <- hist (z$Pos, breaks = Nbreaks2, plot = FALSE)  
+# prepare sequence of bins for current chromosome
+bins = p0$breaks
+
+# generate and store het SNP density histogram data
+p1 <- hist (subset(z$Pos, z$AlleleFreq < 0.9), breaks = bins, plot = FALSE) 
+# generate and store hom SNP density histogram data
+p2 <- hist (subset(z$Pos, z$AlleleFreq > 0.9), breaks = bins, plot = FALSE) 
+
+	for (i in 1:length(p1$counts))	# set all 0 values to 1 to avoid dividing by 0
+	{
+	if (p1$counts[i]==0) { p1$counts[i] = 1}
+	else {}
+	}
+#plot y axis label only for first plot in a row
+	if (x %in% c(1,6,11,16,21)) 
+	{ 
+	# plot homozygous SNP histogram for current chromosome WITH y-axis label
+	plot( p2, main = "", col = rgb(1,0,0), xlab = paste("Chr", y," Position", sep=""), ylab ="SNP Density", 
+ylim = c(0, Yscale), border = rgb(1,0,0), cex.axis=0.75, mgp=c(1.3,0.3,0)) 
+	} else {
+	# plot homozygous SNP histogram for current chromosome WITHOUT y-axis label
+        plot(p2, main = "", col = rgb(1,0,0), xlab = paste("Chr", y," Position", sep=""), ylab ="", 
+ylim = c(0, Yscale), border = rgb(1,0,0), cex.axis=0.75, mgp=c(1.3,0.3,0)) 
+	}
+
+# plot  heterozygous SNP histogram for current chromosome
+plot( p1, main = "", col = rgb(0,0,0), border = rgb(0,0,0), add=T) 
+
+#SNP density
+p3 <- p1	# generate and store difference in SNP density histogram data
+# calculate ratio of homozygous-to-heterozygous counts and scale for visibility in the same plot
+p3$counts = (p2$counts/p1$counts) #*(Yscale/50) 	
+
+mutChrom[x] <- sum(p2$counts)/(sum(p2$counts)+sum(p1$counts))  # fractional homozygosity of whole chromosome
+mutChrom_t[x] <- sum(p2$counts[(p2$counts-p1$counts)>0]) / (sum(p2$counts)+sum(p1$counts)) # fraction homozygous SNPS in hom. bins
+mutChrom_t0[x] <- sum(p2$counts)/sum(p1$counts)  # ratio homozygosity of whole chromosome
+mutChrom_t1[x] <- length(p0$mids[(p2$counts-p1$counts)>0])/length(p0$mids)  # number of homozygous bins
+
+# establish length of haplotype block by checking neighboring bin, 
+ttt = cbind(p2$counts,p1$counts,(p2$counts-p1$counts)>-1,0)
+for (t in 6:(nrow(ttt)-5))
+{  
+if (ttt[t,3]  == 1 & ttt[t+1,3]  == 1 & ttt[t-1,3] == 1 & ttt[t+5,3]  == 1 & ttt[t-5,3] == 1 & !ttt[t-5,1]> 9*ttt[t-4,1] & !ttt[t+5,1]> 9*ttt[t+4,1])
+{ 
+ttt[t,4] = 1 
+} 
+}
+mutChrom_t2[x] = sum(ttt[,4]) # largest haplotype block on chromosome
+#
+# abrupt ratio inversion test
+mutChrom_t3b = cbind(rep(0, length(p0$mids)),rep(0, length(p0$mids)))
+mutChrom_t3b[,1] = as.integer(p2$counts/p1$counts)
+
+for (t in 1:(nrow(mutChrom_t3b))) # remove 0's to avoid multiplying by 0
+{
+if (mutChrom_t3b[t,1] == 0) {mutChrom_t3b[t,1] = 1}
+}
+
+#any 10-fold difference in homozygous/ heterozygous ratio in adjacent bins is marked as an artefact, and coverage dropouts are disregarded
+for (t in 2:(nrow(mutChrom_t3b)-1))
+{ 
+if ((((mutChrom_t3b[t,1] > 9 ) & mutChrom_t3b[t-1,1] < 3) | ((mutChrom_t3b[t,1] > 9 ) & mutChrom_t3b[t+1,1] < 3)) & ((p2$counts[t+1]+ p1$counts[t+1])> Yscale/10) & ((p2$counts[t-1]+ p1$counts[t-1])> Yscale/10) )
+
+
+{mutChrom_t3b[t,2] = -1 } else {}
+}
+
+mutChrom_t3[x]= sum (mutChrom_t3b[,2])
+mutChrom_t3c = mutChrom_t3 # store values for debugging
+mutChrom_t3 = mutChrom_t3 < 0  
+mutChrom_t3 = mutChrom_t3 * -1 # penalty votes for abrupt ratio inversion
+
+#
+# plot differential SNP histogram for current chromosome
+#plot(p3, main = "", col = rgb(0,1,0), border = rgb(0,1,0), add=T)			
+
+# fit a smoothing line to the histogram and plot it
+# bfilter = "yes" # for debugging
+if (bfilter == "yes") # attempts to reomve shared haplotype blocks by detecting sudden hom/het ratio inversions
+{
+lo <- loess(((p2$counts/ (p2$counts+p1$counts))-0.5)~ p3$mids, span =0.25)	
+Fit <- fitted(lo)
+Fit2 = Fit / (-1 + sum(mutChrom_t3b[,2]))^2
+Fit3 = Fit2 * 2 * Yscale
+for (t in 1:length(Fit3))  
+{if (Fit3[t] < 0){Fit3[t]=0} }
+} else {
+# no filter
+lo <- loess(p3$counts ~ p3$mids, span =0.25)	
+Fit <- fitted(lo)
+Fit3 = Fit
+}
+
+lines(p3$mids,Fit3, col='lightblue', lwd=3)
+
+######################################################################
+# plot average coverage
+# initialize variables
+CovMeans <- c(1: (length(p3$mids)))
+# calculate average coverage ber bin
+for (i in 1:(length(p3$mids)))
+	{
+	Tmp_mean <- cbind(z$Pos,z$Coverage)
+	Tmp_mean <- Tmp_mean[Tmp_mean[,1]>(bins[i+1]-bins[2]) & Tmp_mean[,1]<bins[i+1],]
+
+	# dance around because R reduces the dimensions of a matrix when there is only one entry!
+		if (is.nan(mean(Tmp_mean)))
+		{
+		CovMeans[i] = 0	
+		}
+		else 
+		{
+			if (is.matrix(Tmp_mean))
+			{
+			CovMeans[i] = mean(Tmp_mean[,2])*100	
+			}
+			else
+			{
+			CovMeans[i] = Tmp_mean[2]	
+			}
+		}
+	}
+# plot average coverage per bin
+#lines(p3$mids, CovMeans, col='magenta', lty="dotted",lwd=1)
+#############################################################################
+#
+# Add boxplot showing fractional homozygosity for current chromosome
+# bar thickness is relative to chromosome length (makes them look the same for all chromosomes)
+BP_width <-  (chrLengths[x]/15)		
+# bar is positioned at the same distance from histogram for each chromosome
+BP_offset <- (chrLengths[x]/BP_width)+1.4
+# plot the plot
+barplot(matrix(c(mutChrom[x]*Yscale,(1-mutChrom[x])*Yscale)), space=BP_offset, width = BP_width, axes=FALSE, 
+col=c("red","black"), cex.axis=0.75, mgp=c(0.5,0.2,0), add=T)
+
+#plot boxplot y axis label only for last plot in a row
+	if (x %in% c(5,10,15,20,25)) 
+	{ 
+# add new y-axis and labels for the new plot
+axis(4, at=c(0,(Yscale/2),Yscale), labels=c("het","","hom"), las=2, pos=(BP_offset*BP_width*1.05), tick=FALSE, cex.axis=0.5, mgp=c(0.2,0.2,0.2)) 
+mtext("Chr homozygosity",4, line=1.5, adj=0.5, cex=0.5, col="black")
+} else {}
+} # end for loop, all chromosomes processed
+
+#########################################################
+# annotate figure
+#
+title(paste(Mname, " SNP Density and Homozygosity Map", sep=""), cex=4, outer = TRUE) 	# plot title and text
+mtext(paste("- heterozygous SNP density"), side=1, line=0.5, adj=0, cex=0.75, col="black", outer=TRUE)  
+mtext(paste("- homozygous SNP density"), side=1, line=1.5, adj=0, cex=0.75, col="red", outer=TRUE)  
+mtext(paste("- scaled homozygous/heterozygous SNP density ratio"), side=1, line=0.5, adj=0.5, cex=0.75, col="green", outer=TRUE)  
+mtext(paste("- LOESS fit of local SNP density ratio"), side=1, line=1.5, adj=0.5, cex=0.75, col="lightblue", outer=TRUE)  
+mtext(paste("- SNP Coverage (scaled 100x)"), side=1, line=1.5, adj=1.0, cex=0.75, col="magenta", outer=TRUE) 
+trash = dev.off() # turn off graphics engine, save plot file to disk
+cat(counter, " SNPs were analyzed.", "\n")
+#
+#
+#
+#
+#
+##############################################################################################################
+##################################################################################################
+# automatically select chromosome harboring the mutation by comparing degrees of homozygosity among chromosomes
+
+mutChromXX <- mutChrom # for debugging
+# mutChrom <- mutChrom3 # for debugging
+
+mutChrom <- cbind(seq(1:25),mutChrom,mutChrom_t,mutChrom_t0,mutChrom_t1,mutChrom_t2, mutChrom_t3,rep(0,25))	# table of candidate 
+
+#chr parameters
+colnames(mutChrom) = c("chrom","fractional_homozygosity","fraction_homSNPs_per_bin","ratio_hom_vs_het","number_hom_bins_on_chr","largest_haplotype_block_size","ratio_inversion_penalty","cand_chrom_votes")
+
+mutChrom3 <- mutChrom
+
+for (k in 2:6) # make lookup table
+{mutChrom3[,k] = (mutChrom[,k] == max(mutChrom[,k])) }
+mutChrom3[,8] <- (mutChrom3[,2]+mutChrom3[,3]+mutChrom3[,4]+mutChrom3[,5]+mutChrom3[,6]) +mutChrom3[,7]
+
+mutChrom[,8] = mutChrom3[,8]
+chr <- mutChrom[mutChrom[,8]== max(mutChrom[,8]),1]# pick chromosome with highest homozygosity value and set chr to chromosome number
+#chr = 14 # test for debugging
+#write.table(mutChrom, file="/home/galaxy/Desktop/homozygosity_LUT.txt", append = FALSE, quote = FALSE, sep = "\t", row.names = F)
+
+mutChrom[mutChrom[,8]== max(mutChrom[,8]),8] = 0   # set highest homozygosity value to 0
+chr2 <- mutChrom[mutChrom[,8]== max(mutChrom[,8]),1]# pick chromosome with 2nd highest homozygosity value and set chr2 to chromosome 
+mutChrom[,8] = mutChrom3[,8] # reset column 8
+write.table(signif(mutChrom, digits=2), file=args[7], append = FALSE, quote = FALSE, sep = "\t", row.names = F)
+
+cat("The homozygosity score is highest for chromosome ", chr,".", "\n", sep="")
+if (length(chr2)==1) 
+{
+cat("The homozygosity score is second highest for chromosome ", chr,".", "\n", sep="")
+}
+
+##############################################################################################################
+###############################################################################################################
+################################################################################################################
+#################################################################################################################
+#2# Part2: plot a  descriptive plot detailing the ratio of actual SNP histograms and frequencies
+############################################################################################
+# set variables for mapping
+
+#chr <- mutChrom   
+Nbreaks <- 100 # number of bins for all following histograms
+
+############################################################################################
+# set boundaries
+    snpF <- snps0[snps0$Chr == chr,]	# set chromosome to be analyzed
+    snpHomo <- snpF[snpF$AlleleFreq > 0.9,] 	# filter for homozygous alleles
+    snpHomo <- snpHomo[snpHomo$Coverage > 3,]	# set lower boundary for homozygous SNP coverage 
+    snpHet <- snpF[snpF$AlleleFreq < 0.9,] 	# filter for heterozygous alleles 
+    snpHet <- snpHet[snpHet$Coverage > 3,]	# set lower boundary for heterozygous SNP coverage 
+    snpHomo_ct = nrow(snpHet)/50
+    hom_ylim = c(0,snpHomo_ct * 2 )
+
+# plot
+    p0 <- hist (snpHet$Pos, breaks = Nbreaks, plot = FALSE)  	# prepare sequence of bins for current chromosome
+    bins = p0$breaks						# prepare sequence of bins by rounded chromosome length for current chromosome
+
+    png(args[4], width = 600, height = 800, bg = "white", pointsize = 12) # prepare output file
+#    pdf(args[4])
+    par(oma=c(2,2,2,2), mar=c(3,4,2,1), mfrow=c(4,1))				#prepare plot arrangement
+    homo <- hist(snpHomo[,2],breaks=bins, main="", ylab="Freq. hom", xlab="", ylim= hom_ylim)	#plot homozygous SNPs
+    homo$counts[homo$counts==0] <- 1# 0.01	#filter out any nonsensical values(0), which may appear in SNP deserts
+    homo2 = cbind(p0$mids,homo$counts)
+    homo2 = homo2[homo2[,2] > 10, ] 
+
+#    write.table(homo$counts, file = "~/counts.tabular", append = FALSE, quote = FALSE, sep = "\t",col.names = FALSE) #for debugging
+# fit a smoothing line to the histogram and plot it
+    hlo <- loess(homo2[,2] ~ homo2[,1], span = 0.4)	
+    hFit <- fitted(hlo)
+    for (h in 1:length(hFit)) # beautify plot
+    {
+    if (hFit[h] < 0) {hFit[h] = 0} 
+    }
+    lines(homo2[,1],hFit, col='red', lwd=2)
+
+    het <- hist(snpHet[,2],breaks=bins, main="", ylab="Freq. het", xlab="", ylim=hom_ylim)	#plot heterozygous SNPs
+    het$counts[het$counts==0] <- 1 #0.1# 0.001	#filter out any nonsensical values(0), which may appear in SNP deserts
+################################ discarding last value due to error-proneness of bin
+    het2 = cbind(p0$mids,het$counts)
+#    het2 = het2[1: (nrow(het2)-1), ]
+    het2 = het2[het2[,1] %in% homo2[,1],]
+
+# fit a smoothing line to the histogram and plot it
+    helo <- loess(het2[,2] ~ het2[,1], span = 0.4)	
+    heFit <- fitted(helo)
+    lines(het2[,1],heFit, col='black', lwd=2)
+
+#    text(p0$mids[heFit==min(heFit)],500,p0$mids[heFit==min(heFit)])# annotate plot with chr position of het min
+    heFit2 = heFit + (max(heFit)/10)
+    minint = het2[heFit2 < min(heFit2)*1.2, 1]
+    lborder = min(minint)
+    rborder = max(minint)
+    hetvalley = mean(c(lborder,rborder))
+    text(hetvalley,Yscale*0.1,format(hetvalley, scientific=FALSE)) 
+
+    combo = hFit-heFit
+#    combo = 200*hFit/heFit
+    lines(homo2[,1],combo, col='lightblue', lwd=2)
+
+#    lines(p0$mids,combo, col='lightblue', lwd=2)
+    duh = het2[combo==max(combo),1]
+    text(duh,max(combo),format(duh, scientific=FALSE))# annotate plot with chr position of fit differential peak
+
+#plot square of homo-to-heterozygous ratio
+#    plot(p0$mids, (homo$counts/het$counts)^2,t="l",col="red", ylab="(hom/het)^2 [AU]", yaxt='n', xlab="")	
+
+# plot SNP ratios per recombination frequency (bin size in cM)
+
+cMs_file = paste(megamapper_dir,"allchrweights2",sep="")
+cMs <- read.table(file=cMs_file, header = FALSE)
+#cMs <- read.table(file="~/galaxy-dist/tools/MegaMapper/allchrweights2", header = FALSE)
+
+cMs = cMs[cMs$V2==chr,]
+snpcm = cbind(cMs$V3,cMs$V4)
+ii = nrow(snpcm)
+homsnpcm = seq(1:ii)
+for (i in 1 : ii)
+{
+homsnpcm[i] = nrow(snpHomo[snpHomo$Pos<=snpcm[i,2] & snpHomo$Pos>=snpcm[i-1,2],])
+}
+
+hetsnpcm = seq(1:ii)
+for (i in 1 : ii)
+{
+hetsnpcm[i] = nrow(snpHet[snpHet$Pos<=snpcm[i,2] & snpHet$Pos>=snpcm[i-1,2],])
+if (hetsnpcm[i] < 10) {hetsnpcm[i]=10} else {}
+}
+
+snpcm = cbind(snpcm,homsnpcm,hetsnpcm,(homsnpcm/hetsnpcm))
+snpcm[is.na(snpcm[,5]),5] = 0.01
+snpcm[nrow(snpcm)] = snpcm[nrow(snpcm)-5] 
+
+plot(snpcm[,2], snpcm[,5],t="l",col="green", ylab="Map score [AU]", yaxt='n', xlab=paste("Chr",chr," position"))	
+text(snpcm[,2][snpcm[,5]==max(snpcm[,5])],max(snpcm[,5])*0.75,snpcm[,2][snpcm[,5]==max(snpcm[,5])])# annotate plot with chr position of cM peak
+
+cmfit1 <- loess((snpcm[,5]) ~ (snpcm[,2]), span = 0.4)	
+cmfit2 <- fitted(cmfit1)
+lines(snpcm[,2],cmfit2, col='darkgreen', lwd=2)
+densfit_cm <- snpcm[cmfit2==max(cmfit2),2]
+text(densfit_cm,(max(cmfit2)*0.75),densfit_cm)# annotate plot with chr position of fitted cM peak
+
+# prepare table to read out plotting results
+    tmp1 <- (homo$counts/het$counts)
+    tmp2 <- cbind(p0$mids, tmp1)
+    colnames(tmp2) <- c(paste("Chr",chr,"_Position",sep=""),"Homozygosity_Index")
+    tmp2[is.na(tmp2[,2]),2] =0			#filter out any nonsensical values
+    tmp2[is.infinite(tmp2[,2]),2] =0		#filter out any nonsensical values
+    tmp2[is.nan(tmp2[,2]),2] =0			#filter out any nonsensical values
+
+# generate empty histogram to highlight mutation position in plot
+#    empty1 <- tmp2						# import data
+#    empty1[,2] = 0						# set all entries in column2 to 0
+#    empty1[(tmp2[,2] == max(tmp2[,2])),2] = max(tmp2[,2])   	# reset bin with maximum ratio to its original value
+#    lines(empty1, t="h",col="red", ylab="", xlab="")		# draw approximate mutation position into plot
+#    tmp3 <- empty1[empty1[,2]>0,]
+#    polygon(x=c(tmp3[1]-p0$breaks[2], tmp3[1]+p0$breaks[2], tmp3[1]+p0$breaks[2], tmp3[1]-p0$breaks[2]), y=c(tmp3[2]*1.1, tmp3[2]*1.1,-5,-5),density=NULL, border="darkred", col=NULL)
+#    result <- c(tmp2[(tmp2[,2] == max(tmp2[,2])),],p0$breaks[2])	# extract row with highest hom/het ratio
+#    names(result)[3]<- "bin size in bps"
+#    text(result[1],4,result[1])			# annotate plot with chr position of peak
+#    mtext(paste("Chr",chr," Position",sep=""), side=1, line=0.5, adj=0.5, cex=0.75, col="black", outer=TRUE)
+
+#plot homo-to-heterozygous ratio
+    plot(p0$mids, (homo$counts/het$counts),t="l",col="blue", ylab="hom/het [AU]", yaxt='n', xlab="")
+
+# fit smoothing lines to the histogram and plot it
+    lo <- loess((homo$counts/het$counts) ~ p0$mids, span = 0.4)	
+    Fit <- fitted(lo)
+#    lines(p0$mids,Fit, col='lightblue', lwd=2)
+    alt = p0$mids[Fit==max(Fit)]
+#    text(alt,max(Fit)*1.1,paste("Alt.Pos.: ",alt))# annotate plot with chr position of alternate peak
+#    result	# output mapping result text
+    title(paste(Mname," Chr",chr," Mutation Mapping",sep=""), cex=4, outer = TRUE)
+
+    sqr <- loess((homo$counts/het$counts) ~ p0$mids, span = 0.25)	
+    sqrFit <- fitted(sqr)
+    lines(p0$mids,sqrFit, col='darkred', lwd=2)
+    dah = p0$mids[sqrFit==max(sqrFit)]
+    text(dah,max(sqrFit),dah)# annotate plot with chr position of alternate peak
+
+trash = dev.off() # turn off graphics engine, save plot file to disk
+cat ("Chromosome scan complete.\n")
+##############################################
+#############################################
+#output critical interval and save as tab-delimited text file
+
+density_ratio <- c("Heterozygosity Valley",chr,(hetvalley-6*p0$breaks[2]),(hetvalley+6*p0$breaks[2]))
+densratio_fit <- c("SNP Density Ratio Fit",chr,(densfit_cm-(6*p0$breaks[2])),(densfit_cm+(6*p0$breaks[2])))
+compromise <- c("Compromise Fit      ",chr, format((hetvalley+densfit_cm)/2-(6*p0$breaks[2]), scientific = F), format((hetvalley+densfit_cm)/2+(6*p0$breaks[2]), scientific = F))
+
+# type	chr	low	high
+# SNP density ratio fit	13	24250000	28250000
+
+write.table(strsplit(density_ratio, "\t"), file = args[2], append = FALSE, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
+write.table(strsplit(densratio_fit, "\t"), file = args[2], append = T, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
+write.table(strsplit(compromise, "\t"), file = args[2], append = T, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
+
+
+
+cat ("Megamapping complete.\n")
+
+##############################################
+#############################################
+quit(save = "no")
+
+

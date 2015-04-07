@@ -1,0 +1,77 @@
+<?xml version="1.0"?>
+<tool id="chrscan" name="ChrScan" version="0.0.1">
+  <description>Scan chromosomes for a critical interval</description>
+  <command interpreter="python">chrscan.py $input $out_file1 $out_file2 $name $chrom --galaxyDir=${GALAXY_ROOT_DIR}</command> 
+  <inputs>
+    <param name="name" type="text" value="YOUR_SAMPLE_NAME_HERE" label="Mutant Name"/>
+    <param name="input" type="data" format="tabular" label="SNP Dataset" help="Dataset missing? See TIP below."/>
+    <param name="chrom" type="select" label="Chromosome" help="Chromosome to be scanned.">
+      <option value="1">Chr 1</option>
+      <option value="2">Chr 2</option>
+      <option value="3">Chr 3</option>
+      <option value="4">Chr 4</option>
+      <option value="5">Chr 5</option>
+      <option value="6">Chr 6</option>
+      <option value="7">Chr 7</option>
+      <option value="8">Chr 8</option>
+      <option value="9">Chr 9</option>
+      <option value="10">Chr 10</option>
+      <option value="11">Chr 11</option>
+      <option value="12">Chr 12</option>
+      <option value="13">Chr 13</option>
+      <option value="14">Chr 14</option>
+      <option value="15">Chr 15</option>
+      <option value="16">Chr 16</option>
+      <option value="17">Chr 17</option>
+      <option value="18">Chr 18</option>
+      <option value="19">Chr 19</option>
+      <option value="20">Chr 20</option>
+      <option value="21">Chr 21</option>
+      <option value="22">Chr 22</option>
+      <option value="23">Chr 23</option>
+      <option value="24">Chr 24</option>
+      <option value="25">Chr 25</option>
+    </param>
+  </inputs>
+
+  <outputs>
+    <data format="tabular" name="out_file1" />
+    <data format="png" name="out_file2" />
+  </outputs>
+
+  <requirements>
+    <requirement type="python-module">rpy</requirement>
+  </requirements>
+
+  <tests>
+   <test>
+      <param name="name" type="text" value="no_name" label="Mutant Name"/>
+      <param name="input" value="in1.tabular" ftype="tabular"/>
+      <output name="out_file1" file="critint.txt"/>
+      <output name="out_file2" file="megamap.png"/>
+   </test>  
+  </tests>
+
+  <help>
+GALAXY
+Goecks, J, Nekrutenko, A, Taylor, J and The Galaxy Team. Galaxy: a comprehensive approach for supporting accessible, reproducible, and transparent computational research in the life sciences. Genome Biol. 2010 Aug 25;11(8):R86.
+
+Blankenberg D, Von Kuster G, Coraor N, Ananda G, Lazarus R, Mangan M, Nekrutenko A, Taylor J. "Galaxy: a web-based genome analysis tool for experimentalists". Current Protocols in Molecular Biology. 2010 Jan; Chapter 19:Unit 19.10.1-21.
+
+Giardine B, Riemer C, Hardison RC, Burhans R, Elnitski L, Shah P, Zhang Y, Blankenberg D, Albert I, Taylor J, Miller W, Kent WJ, Nekrutenko A. "Galaxy: a platform for interactive large-scale genome analysis." Genome Research. 2005 Oct; 15(10):1451-5. 
+
+
+BEDTools
+Quinlan AR and Hall IM, 2010. BEDTools: a flexible suite of utilities for comparing genomic features. Bioinformatics. 26, 6, pp. 841–842. 
+Dale RK, Pedersen BS, and Quinlan AR. Pybedtools: a flexible Python library for manipulating genomic datasets and annotations. Bioinformatics (2011). doi:10.1093/bioinformatics/btr539 
+
+
+snpEff and snpSift by Pablo Cingolani (pcingola@users.sourceforge.net)
+Cingolani, P. "snpEff: Variant effect prediction", http://snpeff.sourceforge.net, 2012.
+
+MegaMapper by Nikolaus Obholzer (pending)
+  </help>
+
+</tool>
+
+

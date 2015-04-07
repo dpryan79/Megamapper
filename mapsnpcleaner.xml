@@ -1,0 +1,68 @@
+<tool id="mapsnpcleaner" name="Map Snpcleaner" version="0.0.1">
+  <description>Filter VCF4.1 formatted SNP files for mapping SNPs</description>
+  <requirements>
+    <requirement type="package">samtools</requirement>
+  </requirements>
+  <command interpreter="python">
+    mapsnpcleaner.py
+      --input1=$input1
+      --output1=$output1
+      --cmdline=$cmdline
+  </command>
+
+<!-- File selection -->
+  <inputs>
+     <param name="input1" type="data" format="vcf,tabular" label="Select the vcf file to clean up"/>
+     <param name="cmdline" type="text" value="" label="direct command line options" help="please refer to SnpSift (SnpEff) documentation for use of the command line."/>
+  </inputs>
+
+  <outputs>
+    <data format="vcf" name="output1" label="${tool.name} on ${on_string}: cleaned up vcf" />
+  </outputs>
+ 
+   <tests>
+    <test>  
+      <param name="input1" value="in1.vcf" ftype="vcf" />
+      <param name="cmdline" value="" />
+      <output name="output1" file="out1.vcf" ftype="vcf" />
+    </test>
+   </tests>
+
+  <help>
+**What it does**
+
+Uses snpEff_' snpSift to produce cleaned up vcf dataset. It generates a .vcf dataset depending on the specified options. The vcf format is briefly summarized below.
+
+.. _snpEff: http://snpeff.sourceforge.net/SnpSift.html
+
+------
+
+**The Variant Call Format (VCF)**
+
+The Variant Call Format (VCF) is the emerging standard for storing variant data. Originally designed for SNPs and short INDELs, it also works for structural variations.
+
+VCF consists of a header section and a data section. The header must contain a line starting with one '#', showing the name of each field, and then the sample names starting at the 10th column. The data section is TAB delimited with each line consisting of at least 8 mandatory fields (the first 8 fields in the table below). The FORMAT field and sample information are allowed to be absent. We refer to the official VCF spec for a more rigorous description of the format.
+
+**VCF Table**::
+
+  Column Field     Description
+ ------- --------- ----------------------------------------------
+       1 CHROM     Chromosome name
+       2 POS       1-based position. For an indel, this is the position preceding the indel.
+       3 ID        Variant identifier. Usually the dbSNP rsID.
+       4 REF       Reference sequence at POS involved in the variant. For a SNP, it is a single base.
+       5 ALT       Comma delimited list of alternative seuqence(s).
+       6 QUAL      Phred-scaled probability of all samples being homozygous reference.
+       7 FILTER    Semicolon delimited list of filters that the variant fails to pass.
+       8 INFO      Semicolon delimited list of variant information.
+       9 FORMAT    Colon delimited list of the format of individual genotypes in the following fields.
+      10 Sample(s) Individual genotype information defined by FORMAT.
+
+
+------
+
+  </help>
+
+</tool>
+
+

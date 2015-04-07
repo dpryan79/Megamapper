@@ -1,0 +1,693 @@
+#############################################
+# Bulk Segregant Mapper v1.0
+# by Nikolaus Obholzer, 2012
+# License: GPL
+############################################# R --min-vsize=10M --max-vsize=8G --min-nsize=10M --max-nsize=8G
+############################################# 
+##########################################################################################################################################
+##########################################################################################################################################
+#
+#
+# Calculates hom vs het SNP densities from total SNPs with 4 columns for ALL SNPs on ALL chromosomes: "Chr","Pos","AlleleFreq", and "Coverage".
+# The format of the input file is tab-delimited text as downloaded from Galaxy. Any column labels/ headers will be ignored.
+#
+#
+##########################################################################################################################################
+##########################################################################################################################################
+#args <- c("/home/ian/Downloads/Galaxy262-[Coverage_Extractor_on_data_260].tabular","/home/ian/Downloads/Galaxy263-[Coverage_Extractor_on_data_261].tabular", "test","test","test","test") # use for debugging
+#  args <- c("/media/data/database/files/000/dataset_318.dat","/media/data/database/files/000/dataset_319.dat","/media/data/database/files/000/dataset_356.dat","/media/data/database/files/000/dataset_357.dat","/media/data/database/files/000/dataset_358.dat","jj410")
+
+args <- commandArgs(TRUE)
+cat("MegaMapper initialized.\n")
+##############################################
+##############################################
+# Define general variables
+# SNP data file path 
+#
+Mname <- args[6] # name of mutant to be analyzed
+snpfilepath1 <- args[1]
+snpfilepath2 <- args[2]
+megamapper_dir = paste(args[7], "/tools/MegaMapper/",sep="") 
+
+min_AF = 0.2
+max_AF = 1
+
+# Read in SNPs from txt file	
+#
+cutoff = as.integer(toString(args[9]))
+percentile = toString(args[10])
+
+cat("Lower SNP coverage cutoff is: ", cutoff , "\n")
+cat("Minimal Allele Frequqency is: ", min_AF , "\n")
+
+if (percentile == "mean")
+{cat("Calculate AF using: ", percentile, "\n")} else {
+cat("Calculate AF using: ", percentile , "th percentile\n")
+percentile = as.integer(toString(percentile))/100
+}
+
+# read in mutagenesis strain SNP file
+snps0 <- read.table(file = snpfilepath1, header = FALSE, comment.char ="#", sep="\t") 
+snps0 = snps0[snps0[,4] >= cutoff,] #4,] # filter out low coverage SNPs
+snps0 = snps0[snps0[,3] >= min_AF,] #4,] # filter out low coverage SNPs
+#snps0 = snps0[snps0[,3] <= max_AF,] #4,] # filter out low coverage SNPs
+
+# read in mapping strain SNP file
+snps1 <- read.table(file = snpfilepath2, header = FALSE, comment.char ="#", sep="\t") 
+snps1 = snps1[snps1[,4] >= cutoff,] #4,] # filter out low coverage SNPs
+snps1 = snps1[snps1[,3] >= min_AF,] #4,] # filter out low coverage SNPs
+#snps1 = snps1[snps1[,3] <= max_AF,] #4,] # filter out low coverage SNPs
+
+colnames(snps0) <- c("Chr","Pos","AlleleFreq","Coverage")	#annotate table
+colnames(snps1) <- c("Chr","Pos","AlleleFreq","Coverage")	#annotate table
+counter1 = nrow(snps0) #determine number of entries(rows) in table
+counter2 = nrow(snps1) #determine number of entries(rows) in table
+
+# choose only such SNPs for mapping which have coverage in both libraries
+if (counter1 > counter2)
+{
+	for (iii in 1:25)
+	{
+	snps0x = snps0[snps0$Chr == iii,]
+	snps0 = snps0[!snps0$Chr == iii,]
+	snps0y = snps1[snps1$Chr == iii,]
+	snps0 = rbind(snps0, snps0x[snps0x$Pos %in% snps0y$Pos, ])
+	snps0x = 0
+	snps0y = 0
+#	snps0 = rbind(snps0, snps0x[snps0x$Pos %in% snps1[snps1$Pos == iii,2]  ,])
+	}
+}
+if (counter2 > counter1)
+{
+	for (iii in 1:25)
+	{
+	snps0x = snps1[snps1$Chr == iii,]
+	snps1 = snps1[!snps1$Chr == iii,]
+	snps0y = snps0[snps0$Chr == iii,]
+	snps1 = rbind(snps1, snps0x[snps0x$Pos %in% snps0y$Pos, ])
+	snps0x = 0
+	snps0y = 0
+	}
+}
+
+# print(paste(counter1,"mutant and ",counter2," mutagenesis strain SNPs")) # for debugging
+#################################################################################################################
+#################################################################################################################
+#1## Part1: Plot SNPs by zygosity for each chromosome and pick mutant chromosome (highest degree of homozygosity)
+#
+Nbreaks2 <- 100 # number of bins for all following histograms
+#
+# Zv9.60 genome parameters: Chromosome lenghts
+#
+mutChrom <- c(1:25)	# prepare vector for comparing homozygosity between chromosomes
+chrLengths <- c(1:25)	# a bit tedious but Notepad otherwise creates linebreaks that cause errors in R when text is cut/pasted
+chrLengths[1:10] = c(60348388,60300536,63268876,62094675,75682077,59938731,77276063,56184765,58232459,46591166)
+chrLengths[11:20] = c(46661319,50697278,54093808,53733891,47442429,58780683,53984731,49877488,50254551,55952140)
+chrLengths[21:25] = c(44544065,42261000,46386876,43947580,38499472) # chromosome 1-25 lengths of Zv9
+#
+#
+#########################
+png(args[4], width = 600, height = 800, bg = "white") # prepare output file
+par(oma=c(4,0.5,2,0.5), mar=c(2.5,2.5,0.5,2), mfrow = c(5,5)) # prepare graph panels
+#scale the y-axis limit based on the max counts in the histograms of chromosome 1 *1.1
+z <- subset(snps0, snps0$Chr == 1) 	# take  SNPs of single chromosome as subset of all
+zz <- subset(snps1, snps1$Chr == 1) 	# take  SNPs of single chromosome as subset of all
+
+# prepare sequence of bins for current chromosome to ensure equal binning for all plots
+p0 <- hist (c(z$Pos,zz$Pos), breaks = Nbreaks2, plot = FALSE)  
+# prepare sequence of bins for current chromosome
+bins = p0$breaks
+# generate and store het SNP density histogram data
+p1 <- hist (z$Pos, breaks = bins, plot = FALSE) 
+# generate and store hom SNP density histogram data
+p2 <- hist (zz$Pos, breaks = bins, plot = FALSE) 
+#
+Yscale <- 1.05
+#########################
+#
+# begin for loop to process all chromosomes
+for (x in 1:25)	
+{
+y <- toString(x) 		# prepare current chromosome name as string
+# mutagenesis strain
+z1 <- subset(snps0, snps0$Chr == y ) # & snps0$Coverage>4)   # take  SNPs of single chromosome as subset of all
+z1 = z1[z1$AlleleFreq >= min_AF,]
+# z1 = z1[z1$AlleleFreq <= max_AF,]
+
+# mapping strain
+z2 <- subset(snps1, snps1$Chr == y ) # & snps1$Coverage>4)
+z2 = z2[z2$AlleleFreq >= min_AF,]
+# z2 = z2[z2$AlleleFreq <= max_AF,]
+
+#
+# prepare sequence of bins for current chromosome to ensure equal binning for all plots
+p0 <- hist (c(z1$Pos,z2$Pos), breaks = Nbreaks2, plot = FALSE)  
+# prepare sequence of bins for current chromosome
+bins = p0$breaks
+# generate and store mutagenesis strain hom SNP density of mutagenesis dataset (1) histogram data
+p1 <- hist (subset(z1$Pos, z1$AlleleFreq>0.85), breaks = bins, plot = FALSE) 
+# generate and store mapping strain hom SNP density of mapping dataset (2) histogram data
+p2 <- hist (subset(z2$Pos, z2$AlleleFreq>0.85), breaks = bins, plot = FALSE)  
+#
+	for (i in 1:length(p1$counts))	# set all 0 values to 1 to avoid dividing by 0
+	{
+	if (p1$counts[i]==0) { p1$counts[i] = 1}
+	else {}
+	}
+	for (i in 1:length(p2$counts))	# set all 0 values to 1 to avoid dividing by 0
+	{
+	if (p2$counts[i]==0) { p2$counts[i] = 0.5} #1
+	else {}
+	}
+#plot y axis label only for first plot in a row
+	if (x %in% c(1,6,11,16,21)) 
+	{ 
+	# plot mapping SNP histogram for current chromosome WITH y-axis label
+#	plot( p2, main = "", col = rgb(1,0,0), xlab = paste("Chr", y," Position", sep=""), ylab ="SNP Density", 
+#ylim = c(0, Yscale), border = "darkblue", cex.axis=0.5, mgp=c(1.3,0.3,0)) 
+	plot( hist(0, breaks = bins, plot = FALSE), main = "", col = rgb(1,1,1), xlab = paste("Chr", y," Position", sep=""), ylab ="AF Mut. Haplotype", 
+ylim = c(0, Yscale), border = "white", cex.axis=0.75, mgp=c(1.3,0.3,0)) 
+	}
+	# plot mapping SNP histogram for current chromosome WITHOUT y-axis label
+	else 
+	{
+#	plot(p2, main = "", col = rgb(1,0,0), xlab = paste("Chr", y," Position", sep=""), ylab ="", 
+#ylim = c(0, Yscale), border = "darkblue", cex.axis=0.5, mgp=c(1.3,0.3,0)) 
+plot(hist(0, breaks = bins, plot = FALSE), main = "", col = rgb(1,1,1), xlab = paste("Chr", y," Position", sep=""), ylab ="", 
+ylim = c(0, Yscale), border = "white", cex.axis=0.75, mgp=c(1.3,0.3,0)) 
+	}
+#
+# plot  mutagenesis SNP histogram for current chromosome
+#plot( p1, main = "", col = "darkred", border = "darkred", add=T) 
+#
+#SNP density
+p3 <- p1	# generate and store difference in SNP density histogram data
+p3$counts = (p1$counts-p2$counts)/2500 #*(Yscale/40) 	
+#
+#
+# plot differential SNP histogram for current chromosome
+#plot(p3, main = "", col = "darkgreen", border = rgb(0,1,0), add=T)			
+#plot(p3, main = "", col = rgb(0.670,0.973,1.000), border = rgb(0.670,0.973,1.000), add=T) # mint blue			
+plot(p3, main = "", col = "grey", border = "grey", add=T) # grey			
+#
+# fit a smoothing line to the histogram and plot it
+#lo <- loess(p3$counts ~ p3$mids, span =0.25)	
+#Fit <- fitted(lo)
+#lines(p3$mids,Fit, col='darkblue', lwd=2)
+
+######################################################################
+# plot average allele frequency 01
+# initialize variables
+AFMeans <- c(1: (length(p3$mids)))
+# percentile = 0.05 # for debugging
+
+# calculate average coverage ber bin
+for (i in 1:(length(p3$mids)))
+{
+Tmp_mean <- cbind(z1$Pos,z1$AlleleFreq)
+Tmp_mean <- Tmp_mean[Tmp_mean[,1]>(bins[i+1]-bins[2]) & Tmp_mean[,1]<bins[i+1],]
+
+# dance around because R converts a matrix to an integer when there is only one entry!
+	if (is.nan(mean(Tmp_mean)))  #correct SNP coverage dropouts
+	{
+#	AFMeans[i] = 0.5	
+	AFMeans[i] = AFMeans[i-1]	
+	}
+	else 
+	{
+	if (is.matrix(Tmp_mean)) # if there are several SNPs, calculate AF
+	{
+		if (toString(percentile) == "mean")
+		{AFMeans[i] = mean(Tmp_mean[,2])}
+		else
+		{
+		Tmp_mean[,2] = sort(Tmp_mean[,2])
+		AFMeans[i] = quantile(Tmp_mean[,2],percentile)
+		}
+	}
+	else # if there is only 1 SNP, use it for AF
+	{
+	AFMeans[i] = Tmp_mean[2]	
+	}
+	}
+
+# Artefact filter: remove sudden AF jumps
+#	for (c in 2:(length(AFMeans))) 
+#	{
+#	if (AFMeans[c] > (AFMeans[c-1] + 0.49) ) 
+#	if ( (AFMeans[c] > (AFMeans[c-1] *2 )) | (AFMeans[c] < (AFMeans[c-1] / 2 )) ) 
+#	{AFMeans[c] = AFMeans[c-1]}
+#	}
+
+}
+# plot average AF per bin
+#lines(p3$mids, (AFMeans*Yscale), col='black',lwd=1)
+##########################
+# plot average allele frequency 02
+# initialize variables
+AFMeans2 <- c(1: (length(p3$mids)))
+# calculate average coverage ber bin
+for (i in 1:(length(p3$mids)))
+{
+Tmp_mean <- cbind(z2$Pos,z2$AlleleFreq)
+Tmp_mean <- Tmp_mean[Tmp_mean[,1]>(bins[i+1]-bins[2]) & Tmp_mean[,1]<bins[i+1],]
+# dance around because R converts a matrix to an integer when there is only one entry!
+	if (is.nan(mean(Tmp_mean))) #correct SNP coverage dropouts
+	{
+#	AFMeans2[i] = 0.5	
+	AFMeans2[i] = AFMeans2[i-1]
+	}
+	else 
+	{
+	if (is.matrix(Tmp_mean))
+	{
+		if (percentile == "mean")
+		{AFMeans2[i] = mean(Tmp_mean[,2])}
+		else
+		{
+		Tmp_mean[,2] = sort(Tmp_mean[,2])
+		AFMeans2[i] = quantile(Tmp_mean[,2],percentile)
+		}
+	}
+	else
+	{
+	AFMeans2[i] = Tmp_mean[2]	
+	}
+	}
+# Artefact filter: remove sudden AF jumps
+#	for (c in 2:(length(AFMeans2))) 
+#	{
+#	if ( (AFMeans2[c] > (AFMeans2[c-1] *2 )) | (AFMeans2[c] < (AFMeans2[c-1] / 2 )) ) 
+#	if (AFMeans2[c] > (AFMeans2[c-2] + 0.5) | AFMeans2[c] < (AFMeans2[c-2] - 0.5))
+#	{AFMeans2[c] = AFMeans2[c-1]}
+#	}
+
+}
+# plot average AF per bin
+#lines(p3$mids, (AFMeans2*Yscale), col='darkgrey',lwd=1)
+###
+#	for (c in 2:(length(AFMeans))) 
+#	{
+#	if ( (AFMeans[c] > (mean(z1$AlleleFreq) + 0.5)) & (AFMeans[c] > (mean(z1$AlleleFreq) + 0.5)) )
+#	{AFMeans[c] = AFMeans[c-1]}
+#	}
+###
+# Artefact filter: remove sudden AF jumps
+#	for (c in 2:(length(AFMeans))) 
+#	{
+#	if ((AFMeans[c] > AFMeans[c-1] + 0.5) | (AFMeans[c] < AFMeans[c-1] - 0.5 )) 
+#	{AFMeans[c] = AFMeans[c-1]}
+#	}
+
+# Artefact filter: remove sudden AF jumps
+#	for (c in 3:(length(AFMeans))) 
+#	{
+#        # if there is a ratio inversion
+#	if ((AFMeans[c] > 0.9 & AFMeans[c-2] < 0.5) | (AFMeans[c] < 0.5 & AFMeans[c-1] > 0.9)) 
+#	{AFMeans[c] = AFMeans[c-1]}
+#	}
+
+#ratio inversion filter
+#	for (c in 2:(length(AFMeans))) 
+#	{
+#	if ( ((AFMeans[c] - 0.5) < 0 | (AFMeans[c-1] - 0.5 > 0)) | ((AFMeans[c] - 0.5) > 0 | (AFMeans[c-1] - 0.5 < 0)) )
+#	{AFMeans[c] = AFMeans[c-1]}
+#	}
+
+lines(p3$mids, (AFMeans*Yscale), col=rgb(1.000,0.679,0.450),lwd=1) # pastel orange
+
+# fit a smoothing line to the histogram and plot it
+
+lo <- loess((AFMeans*Yscale) ~ p3$mids, span =0.4)	
+Fit <- fitted(lo)
+lines(p3$mids,Fit, col=rgb(0.850,0.150,0.196), lwd=2) #red
+#
+######################################################################
+# plot average coverage 01
+# initialize variables
+# CovMeans <- c(1: (length(p3$mids)))
+# calculate average coverage ber bin
+#for (i in 1:(length(p3$mids)))
+#{
+#Tmp_mean <- cbind(z1$Pos,z1$Coverage)
+#Tmp_mean <- Tmp_mean[Tmp_mean[,1]>(bins[i+1]-bins[2]) & Tmp_mean[,1]<bins[i+1],]
+# dance around because R converts a matrix to an integer when there is only one entry!
+#	if (is.nan(mean(Tmp_mean)))
+#	{
+#	CovMeans[i] = 0	
+#	}
+#	else 
+#	{
+#	if (is.matrix(Tmp_mean))
+#	{
+#	CovMeans[i] = mean(Tmp_mean[,2])	
+#	}
+#	else
+#	{
+#	CovMeans[i] = Tmp_mean[2]	
+#	}
+#	}
+#}
+# plot average coverage per bin
+#lines(p3$mids, CovMeans/20, col='magenta', lty="dotted",lwd=1)
+##########################
+# plot average coverage 02
+# initialize variables
+#CovMeans <- c(1: (length(p3$mids)))
+# calculate average coverage ber bin
+#for (i in 1:(length(p3$mids)))
+#{
+#Tmp_mean <- cbind(z2$Pos,z2$Coverage)
+#Tmp_mean <- Tmp_mean[Tmp_mean[,1]>(bins[i+1]-bins[2]) & Tmp_mean[,1]<bins[i+1],]
+# dance around because R converts a matrix to a integer when there is only one entry!
+#	if (is.nan(mean(Tmp_mean)))
+#	{
+#	CovMeans[i] = 0	
+#	}
+#	else 
+#	{
+#	if (is.matrix(Tmp_mean))
+#	{
+#	CovMeans[i] = mean(Tmp_mean[,2])	
+#	}
+#	else
+#	{
+#	CovMeans[i] = Tmp_mean[2]	
+#	}
+#	}
+#}
+# plot average coverage per bin
+#lines(p3$mids, CovMeans/20, col='orange', lty="dotted",lwd=1)
+#
+#############################################################################
+#mutChrom[x] <- ((mean(z1$AlleleFreq)-mean(z2$AlleleFreq))/mean(z1$AlleleFreq))  # fractional homozygosity of whole chromosome
+
+#mutChrom[x] <- (mean(z1$AlleleFreq))  # fractional homozygosity of whole chromosome
+mutChrom[x] <- (mean(AFMeans))  # fractional homozygosity of whole chromosome
+
+#
+# Add boxplot showing average cumulative Allele Frequency for current chromosome
+# bar thickness is relative to chromosome length (makes them look the same for all chromosomes)
+BP_width <-  (chrLengths[x]/15)		
+# bar is positioned at the same distance from histogram for each chromosome
+BP_offset <- (chrLengths[x]/BP_width)+1.4
+# plot the plot
+barplot(matrix(c(mutChrom[x]*Yscale,(1-mutChrom[x])*Yscale)), space=BP_offset, width = BP_width, axes=FALSE, col=c("red","black"), cex.axis=0.75, mgp=c(0.5,0.2,0), add=T)
+#
+
+#plot boxplot y axis label only for last plot in a row
+	if (x %in% c(5,10,15,20,25)) 
+	{ 
+# add new y-axis and labels for the new plot
+	axis(4, at=c(0,(Yscale/2),Yscale), labels=c("map","het","mut"), las=2, pos=(BP_offset*BP_width*1.05), tick=FALSE, cex.axis=0.5, mgp=c(0.2,0.2,0.2)) 
+	mtext("Chr haplotype",4, line=1.5, adj=0.5, cex=0.5, col="black")
+	} else {}
+} # end for loop, all chromosomes processed
+#
+#########################################################
+# annotate figure
+#
+title(paste(Mname, " SNP Density of AB Haplotype Map", sep=""), cex=4, outer = TRUE) 	# plot title and text
+mtext(paste("LOESS fit of mutag. strain allele freq."), side=1, line=0.5, adj=0, cex=0.75, col=rgb(0.850,0.150,0.196), outer=TRUE)  
+#mtext(paste("- mutagenesis strain allele frequency"), side=1, line=1.5, adj=0, cex=0.75, col=rgb(0.670,0.973,1.000), outer=TRUE)  
+mtext(paste("mutag. strain allele frequency"), side=1, line=0.5, adj=0.5, cex=0.75, col=rgb(1.000,0.679,0.450), outer=TRUE)  
+#mtext(paste("- LOESS fit of mutagenesis strain allele frequency"), side=1, line=1.5, adj=0.5, cex=0.75, col="lightblue", outer=TRUE)  
+mtext(paste("mutag. strain SNP density excess"), side=1, line=0.5, adj=1.0, cex=0.75, col="grey", outer=TRUE)  
+# mtext(paste("mutag. strain SNP density excess"), side=1, line=0.5, adj=1.0, cex=0.75, col=rgb(0.670,0.973,1.000), outer=TRUE)  
+#mtext(paste("- mutagenesis strain Coverage (1/20)"), side=1, line=1.5, adj=1.0, cex=0.75, col="yellow", outer=TRUE) 
+#
+trash = dev.off() # turn off graphics engine, save plot file to disk
+
+cat("A total of ", (counter1+counter2) , " SNPs were analyzed.","\n")
+#
+##############################################################################################################
+##################################################################################################
+# automatically select chromosome harboring the mutation by comparing degrees of homozygosity among chromosomes
+#
+mutChrom <- cbind(seq(1:25),mutChrom)		# intialize variable
+colnames(mutChrom) = c("Chr","Bulk_AF")
+#if (max(mutChrom[,2]<0)) 		#test for negative (= invalid) values and if TRUE, add constant to all values to shift them above 0
+#	{ 
+#	mutChrom[,2] <- mutChrom[,2] -(min(mutChrom[,2]))
+#	}
+write.table(signif(mutChrom, digits=2), file=args[8], quote = FALSE, sep = "\t", row.names = F)
+
+
+chr <- mutChrom[mutChrom[,2]== max(mutChrom[,2]),1]# pick chromosome with highest homozygosity value and set chr to chromosome number
+mutChrom[mutChrom[,2]== max(mutChrom[,2]),2] = 0   # set highest homozygosity value to 0
+chr2 <- mutChrom[mutChrom[,2]== max(mutChrom[,2]),1]# pick chromosome with 2nd highest homozygosity value and set chr2 to chromosome number
+cat ("The mutagenesis haplotype score is highest for chromosome ", chr,".")
+cat ("The mutagenesis haplotype score is 2nd highest for chromosome ", chr2,".")
+#
+#
+#
+#
+#
+#
+##############################################################################################################
+###############################################################################################################
+################################################################################################################
+#################################################################################################################
+#2# Part2: plot a  descriptive plot detailing the ratio of actual SNP histograms and frequencies
+############################################################################################
+# set variables for mapping
+#
+#chr <- mutChrom   
+Nbreaks <- 100 # number of bins for all following histograms
+#
+############################################################################################
+# set boundaries
+    snpF <- snps0[snps0$Chr == chr,]	# set chromosome to be analyzed
+    snpHomo <- snpF[snpF$AlleleFreq > 0.90,] 	# filter for homozygous alleles
+    snpHomo <- snpHomo[snpHomo$Coverage > cutoff,]	# set lower boundary for homozygous SNP coverage 
+    snpHet <- snpF[snpF$AlleleFreq < 0.90,] 	# filter for heterozygous alleles 
+    snpHet <- snpHet[snpHet$Coverage > cutoff,]	# set lower boundary for heterozygous SNP coverage 
+
+# take  SNPs of single chromosome as subset of all
+    z1 <- subset(snps0, snps0$Chr == chr & snps0$Coverage>cutoff)   
+    z2 <- subset(snps1, snps1$Chr == chr & snps1$Coverage>cutoff)
+    snpHomo_ct = nrow(snpHomo)/50
+    hom_ylim = c(0,snpHomo_ct * 2)
+
+# plot
+    p0 <- hist (snpHet$Pos, breaks = Nbreaks, plot = FALSE)  	# prepare sequence of bins for current chromosome
+    bins = p0$breaks						# prepare sequence of bins by rounded chromosome length for current chromosome
+#
+    png(args[5], width = 600, height = 800, bg = "white") # prepare output file
+#
+    par(oma=c(2,2,2,2), mar=c(3,4,1,1), mfrow=c(4,1))				#prepare plot arrangement
+    homo <- hist(snpHomo[,2],breaks=bins, main="", ylab="hom SNP Freq", xlab="")	#plot homozygous SNPs
+    homo$counts[homo$counts==0] <- 1# 0.01	#filter out any nonsensical values(0), which may appear in SNP deserts
+    homo2 = cbind(p0$mids,homo$counts)
+    homo2 = homo2[homo2[,2] > 10, ] 
+
+# fit a smoothing line to the histogram and plot it
+    hlo <- loess(homo2[,2] ~ homo2[,1], span = 0.4)	
+    hFit <- fitted(hlo)
+    for (h in 1:length(hFit))  # beautify plot
+    {
+    if (hFit[h] < 0) {hFit[h] = 0} 
+    }
+    lines(homo2[,1],hFit, col='red', lwd=2)
+
+    het <- hist(snpHet[,2],breaks=bins, main="", ylab="Freq. het", xlab="", ylim=hom_ylim)	#plot heterozygous SNPs
+    het$counts[het$counts==0] <- 1 #0.1# 0.001	#filter out any nonsensical values(0), which may appear in SNP deserts
+    het2 = cbind(p0$mids,het$counts)
+
+################################ discarding last value due to error-proneness of bin
+#    het2 = het2[1: (nrow(het2)-1), ]
+    het2 = het2[het2[,1] %in% homo2[,1],]
+
+# fit a smoothing line to the histogram and plot it
+    helo <- loess((het2[,2]) ~ het2[,1], span = 0.4)	
+    heFit <- fitted(helo)
+    lines(het2[,1],heFit, col='black', lwd=2)
+    hemin = het2[heFit==min(heFit),1]      #lowest value of the heterozygous SNP fit
+#    text(hemin,250,hemin)# annotate plot with chr position of alternate peak
+
+    combo = hFit-heFit
+    lines(homo2[,1],combo, col='lightblue', lwd=2)
+    duh = homo2[combo==max(combo),1]	#point of largest divergence between the heterozygous and homozygous SNP fits
+    text(duh,max(combo),format(duh, scientific=FALSE))# annotate plot with chr position of alternate peak
+    heFit2 = heFit + (max(heFit)/10)
+
+## detect heterozygosity dip
+    minint = het2[heFit2 < min(heFit2)*1.2, 1]
+    lborder = min(minint)
+    rborder = max(minint)
+    hetvalley = mean(c(lborder,rborder))
+    text(hetvalley,100,format(hetvalley, scientific=FALSE))
+
+#
+######################################################################
+
+######################################################################
+
+######################################################################
+# plot average allele frequency 01
+# initialize variables
+    AFMeans <- c(1: (length(p0$mids)))
+    AFhist <- hist(0,breaks=bins, main="", ylab="Mut. Strain AF", xlab="")
+
+# calculate average AF ber bin
+for (i in 1:(length(p0$mids)))
+{
+Tmp_mean <- cbind(z1$Pos,z1$AlleleFreq)
+Tmp_mean <- Tmp_mean[Tmp_mean[,1]>(bins[i+1]-bins[2]) & Tmp_mean[,1]<bins[i+1],]
+
+# dance around because R converts a matrix to an integer when there is only one entry!
+# NOW INCLUDES ERROR CORRECTION TERM! OUTLIERS IN AF ARE IGNORED.
+if (i==1) 	{
+		if (is.nan(mean(Tmp_mean))) 
+			{ 
+			AFMeans[i] = 0
+			} 	#  if there is no SNP in first bin, set to 0
+		else 	{
+			if (is.matrix(Tmp_mean)) 
+				{
+				AFMeans[i] = mean(Tmp_mean[,2])
+				}	# else, calculate mean AF in bin
+			else 
+				{
+				AFMeans[i] = Tmp_mean[2]
+				}				# or, take AF in bin if only 1 SNP
+			}			
+		}
+
+if (i>1) 	{
+		if (is.nan(mean(Tmp_mean))) 
+			{
+			AFMeans[i] = AFMeans[i-1] #  if there is no SNP in current bin, set to previous bin's value
+			} 	
+		else 	
+			{
+			if (is.matrix(Tmp_mean)) #calculate mean AF in bin if several SNPs
+				{
+				if ((mean(Tmp_mean[,2]) > (AFMeans[i-1]+1)) | (mean(Tmp_mean[,2]) < (AFMeans[i-1]-0.4))) #threshold for error correction for allele dropouts
+					{
+					AFMeans[i] = AFMeans[i-1] #error correction for allele dropouts
+					}	
+				else 
+					{
+					AFMeans[i] = mean(Tmp_mean[,2]) #regular AF calculation
+					}	
+				}	
+			else	{
+				if ((Tmp_mean[2] > (AFMeans[i-1]+1)) | (Tmp_mean[2] < (AFMeans[i-1]-0.4))) #threshold for error correction for allele dropouts
+					{
+					AFMeans[i] = AFMeans[i-1] #error correction for allele dropouts
+					}	
+				else 
+					{
+					AFMeans[i] = Tmp_mean[2] # else, take AF in bin if there is only 1 SNP
+					}
+				}		
+			}			
+		}
+}
+# plot average AF per bin
+#lines(p3$mids, (AFMeans*Yscale), col='black',lwd=1)
+##########################
+# plot average allele frequency 02
+# initialize variables
+AFMeans2 <- c(1: (length(p0$mids)))
+# calculate average coverage ber bin
+for (i in 1:(length(p0$mids)))
+{
+Tmp_mean <- cbind(z2$Pos,z2$AlleleFreq)
+Tmp_mean <- Tmp_mean[Tmp_mean[,1]>(bins[i+1]-bins[2]) & Tmp_mean[,1]<bins[i+1],]
+# dance around because R converts a matrix to an integer when there is only one entry!
+	if (is.nan(mean(Tmp_mean)))
+	{
+	AFMeans2[i] = 0	
+	#AFMeans2[i] = AFMeans2[i-1]	
+	}
+	else 
+	{
+	if (is.matrix(Tmp_mean))
+	{
+	AFMeans2[i] = mean(Tmp_mean[,2])	
+	}
+	else
+	{
+	AFMeans2[i] = Tmp_mean[2]	
+	}
+	}
+}
+
+# plot average AF per bin
+#lines(p0$mids, (AFMeans2), col='black',lwd=1)
+    lines(p0$mids, (AFMeans), col='darkred',lwd=1)
+    AFpk = p0$mids[AFMeans==max(AFMeans)]
+#text(AFpk,max(AFMeans),AFpk)# annotate plot with chr position of alternate peak
+#lines(p0$mids, (AFMeans-AFMeans2)*0.25, col='blue',lwd=1)
+    AFpk2 = p0$mids[(AFMeans-AFMeans2)==max(AFMeans-AFMeans2)]
+#text(AFpk2,0.2,AFpk2)# annotate plot with chr position of alternate peak
+
+# fit a smoothing line to the histogram and plot it
+    AFMeans3 = cbind(p0$mids,AFMeans)
+    AFMeans3 = AFMeans3[AFMeans3[,1] %in% homo2[,1],] # discard bins with insufficient SNPs
+    AFlo <- loess(AFMeans3[,2] ~ AFMeans3[,1], span =0.4)	
+
+# AFlo <- loess((AFMeans) ~ p0$mids, span =0.4)	
+    AFFit <- fitted(AFlo)
+    lines(AFMeans3[,1],AFFit, col='red', lwd=2)
+    mAFFit <- AFMeans3[AFFit==max(AFFit),1]
+    text(mAFFit,0.2,mAFFit)# annotate plot with chr position of alternate peak
+
+# prepare table to read out plotting results
+    tmp1 <- AFFit
+    tmp2 <- cbind(AFMeans3[,1], tmp1)
+    colnames(tmp2) <- c(paste("Chr",chr,"_Position",sep=""),"Homozygosity_Index")
+    tmp2[is.na(tmp2[,2]),2] =0			#filter out any nonsensical values
+    tmp2[is.infinite(tmp2[,2]),2] =0		#filter out any nonsensical values
+    tmp2[is.nan(tmp2[,2]),2] =0			#filter out any nonsensical values
+# generate empty histogram to highlight mutation position in plot
+    empty1 <- tmp2						# import data
+    empty1[,2] = 0						# set all entries in column2 to 0
+    empty1[(tmp2[,2] == max(tmp2[,2])),2] = max(tmp2[,2])   	# reset bin with maximum ratio to its original value
+    lines(empty1, t="h",col="red", ylab="", xlab="")		# draw approximate mutation position into plot
+    tmp3 <- empty1[empty1[,2]>0,]
+    polygon(x=c(tmp3[1]-p0$breaks[2], tmp3[1]+p0$breaks[2], tmp3[1]+p0$breaks[2], tmp3[1]-p0$breaks[2]), y=c(tmp3[2]*1.1, tmp3[2]*1.1,-5,-5),density=NULL, border="darkred", col=NULL)
+    result <- c(tmp2[(tmp2[,2] == max(tmp2[,2])),],p0$breaks[2])	# extract row with highest hom/het ratio
+    names(result)[3]<- "bin size in bps"
+    text(result[1],4,result[1])			# annotate plot with chr position of peak
+    mtext(paste("Chr",chr," Position",sep=""), side=1, line=0.5, adj=0.5, cex=0.75, col="black", outer=TRUE)
+#
+#plot homo-to-heterozygous ratio
+    plot(p0$mids, (homo$counts/het$counts),t="l",col="blue", ylab="hom/het [AU]", yaxt='n', xlab="")
+
+# fit a smoothing line to the histogram and plot it
+    lo <- loess((homo$counts/het$counts) ~ p0$mids, span = 0.5)	
+    Fit <- fitted(lo)
+    lines(p0$mids,Fit, col='lightblue', lwd=2)
+    alt = p0$mids[Fit==max(Fit)]
+    text(alt,Yscale*0.8,paste("Alt.Pos.: ",alt))# annotate plot with chr position of alternate peak
+    result	# output mapping result text
+    title(paste(Mname," Chr",chr," Mutation Mapping",sep=""), cex=4, outer = TRUE)
+#
+trash = dev.off() # turn off graphics engine, save plot file to disk
+print ("Chromosome scan complete.")
+##############################################
+#############################################
+#output critical interval and save as tab-delimited text file
+#
+allelefreq <- c("Allele Freqency fit",chr,(mAFFit-(6*p0$breaks[2])),(mAFFit+(6*p0$breaks[2])))
+hetdensity <- c("min het density fit",chr,(hemin-6*p0$breaks[2]),(hemin+6*p0$breaks[2]))
+valley <- c("het density valley", chr, (hetvalley-6*p0$breaks[2]), (hetvalley+6*p0$breaks[2]))
+density_ratio <- c("SNP density ratio fit",chr,(alt-(6*p0$breaks[2])),(alt+(6*p0$breaks[2])))
+compromise <- c("compromise fit      ",chr, format((mAFFit+hetvalley)/2-(6*p0$breaks[2]), scientific = F), format((mAFFit+hetvalley)/2+(6*p0$breaks[2]), scientific = F))
+#regions=data.frame(algorithm=c(minimal[1],extended[1],altmin[1],altext[1],compromise[1]),chrom=c(chr,chr,chr,chr,chr),
+#low=c(minimal[3],extended[3],altmin[3],altext[3],compromise[3]),high=c(minimal[4],extended[4],altmin[4],altext[4],compromise[4]))
+#write.table(regions, file = args[3], append = FALSE, quote = FALSE, sep = "\t",col.names = FALSE)
+#write.table(c("ALGORITHM","CHR","START","END"), file = args[3], append = FALSE, quote = FALSE, sep = "\t",col.names = TRUE, row.names = FALSE)
+write.table(strsplit(allelefreq, "\t"), file = args[3], append = FALSE, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
+write.table(strsplit(valley, "\t"), file = args[3], append = T, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
+write.table(strsplit(compromise, "\t"), file = args[3], append = T, quote = FALSE, sep = "\t", col.names = FALSE, row.names = FALSE)
+
+print ("Megamapping complete.")
+#
+##############################################
+#############################################
+quit(save = "no")
+

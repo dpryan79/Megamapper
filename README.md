@@ -1,2 +1,4 @@
-# Megamapper
-This will become a more efficient version of https://wiki.med.harvard.edu/SysBio/Megason/MegaMapper
+This is a github repository holding my modified version of the positional cloning tool known as "MegaMapper". The original tool is found [here](https://wiki.med.harvard.edu/SysBio/Megason/MegaMapper) and all references should be made to it and its [accompanying paper](http://dev.biologists.org/content/139/22/4280.long).
+
+#Background
+We use this pipeline fairly frequently to aid in positional cloning in zebra fish. However, this pipeline has presented a number of problems regarding its interactions with Galaxy (e.g., it can kill the server). Many of these problems seem to be due simply to how the MegaMapper tools are written (e.g., writing unneeded large temporary files) and not some other cause. Consequently, we're hoping that simply rewriting some of the more problematic tools will improve stability and run time.

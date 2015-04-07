@@ -1,0 +1,27 @@
+<tool id="meg_intersector" name="SNP Candidator" version="1.0.0">
+  <description>Choose candidates from the critical interval</description>
+  <command interpreter="python">candidator.py $input1 $input2 $output1 --galaxyDir=${GALAXY_ROOT_DIR}</command>
+
+  <inputs>
+    <param name="input1" label="Cleaned up snpEff SNP list" type="data" format="vcf,tabular" />
+    <param name="input2" label="Critical Interval(s) Table" type="data" format="tabular" />
+  </inputs>
+
+  <outputs>
+    <data format="tabular" name="output1" label="${tool.name} on ${on_string}" />
+  </outputs>
+ 
+  <tests>
+    <test>
+      <param name="input1" value="1.vcf" ftype="vcf" />
+      <param name="input2" value="2.vcf" ftype="tabular" />
+      <output name="output1" file="1_2_intersect_priority_1.tabular" ftype="tabular" />
+    </test>
+  </tests>
+
+  <help>
+**What it does**
+Limits WT-filtered SNPs to critical interval by intersecting mapping data with SNP effect table.
+
+  </help>
+</tool>
