@@ -1,19 +1,11 @@
 #!/usr/bin/env python
 # megamapper executer
 # by Nikolaus Obholzer, Jan 2012
-"""
-
-usage: %prog [options]
-   -x, --galaxyDir=x: Galaxy root directory
-
-"""
 
 import sys, re, tempfile, subprocess
 import os, shutil
 from galaxy import eggs
-from rpy import *
-import pkg_resources; pkg_resources.require( "bx-python" )
-from bx.cookbook import doc_optparse
+
 
 def stop_err(msg):
     sys.stderr.write(msg)
@@ -26,16 +18,12 @@ def main():
     out_file1 = sys.argv[2]
     out_file2 = sys.argv[3]
     out_file3 = sys.argv[4]
-    out_file4 = sys.argv[5]
-    Mname = sys.argv[6]
-    galaxy_root = sys.argv[7]
-    rscript_path = os.path.join( galaxy_root, 'tools/MegaMapper/HMFseq_Rscript' ) 
-    cutoff = sys.argv[8]
-    bfilter = sys.argv[9]
+    Mname = sys.argv[5]
+    rscript_path = '/export/local_tools/MegaMapper/HMFseq_Rscript'
 
     try:
     #prepare command line 
-        cmd  = 'Rscript --vanilla %s %s %s %s %s %s %s %s %s %s' %(rscript_path, in_fname, out_file1, out_file2, out_file3, Mname, galaxy_root, out_file4, cutoff, bfilter)
+        cmd  = 'Rscript --vanilla %s %s %s %s %s %s' %(rscript_path, in_fname, out_file1, out_file2, out_file3, Mname )
         print cmd # for debugging 
         os.system(cmd)
 #        subprocess.Popen(args=cmd, shell=True).wait

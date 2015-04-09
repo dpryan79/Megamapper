@@ -1,7 +1,10 @@
 <?xml version="1.0"?>
 <tool id="chrscan" name="ChrScan" version="0.0.1">
   <description>Scan chromosomes for a critical interval</description>
-  <command interpreter="python">chrscan.py $input $out_file1 $out_file2 $name $chrom --galaxyDir=${GALAXY_ROOT_DIR}</command> 
+  <requirements>
+    <requirement type="package">R</requirement>
+  </requirements>
+  <command interpreter="python">chrscan.py $input $out_file1 $out_file2 $name $chrom</command> 
   <inputs>
     <param name="name" type="text" value="YOUR_SAMPLE_NAME_HERE" label="Mutant Name"/>
     <param name="input" type="data" format="tabular" label="SNP Dataset" help="Dataset missing? See TIP below."/>

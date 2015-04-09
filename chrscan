@@ -16,7 +16,7 @@
 ##########################################################################################################################################
 # use for debugging
 # args= c("/media/data/database/files/000/dataset_399.dat","/media/data/database/files/000/dataset_443.dat","/media/data/database/files/000/dataset_444.dat","A229-2","15")
-
+options(bitmapType='cairo')
 cat("MegaMapper initialized.\n")
 ##############################################
 ##############################################
@@ -25,8 +25,7 @@ cat("MegaMapper initialized.\n")
 args <- commandArgs(TRUE)
 print(args)
 
-megamapper_dir = paste(args[6], "/tools/MegaMapper/",sep="") 
-
+megamapper_dir = "/export/local_tools/MegaMapper/"
 Mname <- "YOUR_SAMPLE_NAME_HERE"
 snpfilepath <- args[1]
 Mname <- args[2] #"test" # name of mutant to be analyzed

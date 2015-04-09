@@ -4,7 +4,6 @@
         VCFheader.py 
         $out_file1 
         $input1
-        --galaxyDir=${GALAXY_ROOT_DIR}
     </command>
     <inputs>
         <param name="input1" type="data" label="headerless VCF4.1-formatted SNP Dataset"/>

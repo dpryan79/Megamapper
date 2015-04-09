@@ -1,16 +1,7 @@
 #!/usr/bin/env python
 
-"""
-
-usage: %prog [options]
-   -x, --galaxyDir=x: Galaxy root directory
-
-"""
-
 from galaxy import eggs
 import sys, os
-import pkg_resources; pkg_resources.require( "bx-python" )
-from bx.cookbook import doc_optparse
 
 def stop_err(msg):
     sys.stderr.write(msg)
@@ -19,10 +10,7 @@ def stop_err(msg):
 def main():
     outfile = sys.argv[1]
     infile = sys.argv[2]
-    #Parse Command Line
-    options, args = doc_optparse.parse( __doc__ )
-    galaxy_root = options.galaxyDir
-    headerfile = os.path.join( galaxy_root, 'tools/MegaMapper/VCF4.1_header.vcf' ) 
+    headerfile = '/export/local_tools/MegaMapper/VCF4.1_header.vcf'
     
     try:
         fout = open(sys.argv[1],'w')

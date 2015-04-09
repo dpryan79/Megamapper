@@ -1,36 +1,27 @@
 <?xml version="1.0"?>
-<tool id="BSAtest" name="BSAseq MegaMapper" version="0.0.1">
-  <description>The Megason Lab's Bulk Segregant Mapper for Galaxy</description>
+<tool id="test" name="HMFseq MegaMapper custom" version="0.0.1">
+  <description>The Megason Lab's Homozygosity Mapper for Galaxy</description>
   <requirements>
     <requirement type="package">R</requirement>
   </requirements>
-  <command interpreter="python">bsaseq_megamapper.py $input1 $input2 $out_file1 $out_file2 $out_file3 $name</command> 
+  <command interpreter="python">hmfseq_megamapper.py $input $out_file1 $out_file2 $out_file3 $name $chr</command> 
   <inputs>
     <param name="name" type="text" value="YOUR_SAMPLE_NAME_HERE" label="Mutant Name"/>
-    <param name="input1" type="data" format="tabular" label="Mutant Pool SNPs" help="Dataset missing? See TIP below"/>
-    <param name="input2" type="data" format="tabular" label="Mutagenesis - Mapping Strain SNPs" help="Dataset missing? See TIP below"/>
+    <param name="input" type="data" format="tabular" label="SNP Dataset" help="Dataset missing? See TIP below"/>
+    <param name="chr" type="integer" min="1" max="25" label="Chromosome to select" />
   </inputs>
 
   <outputs>
     <data format="tabular" name="out_file1" />
     <data format="png" name="out_file2" />
     <data format="png" name="out_file3" />
+    <!-- data format="pdf" name="out_file2" />
+    <data format="pdf" name="out_file3" /-->
   </outputs>
 
   <requirements>
     <requirement type="python-module">rpy</requirement>
   </requirements>
-
-  <tests>
-   <test>
-      <param name="name" type="text" value="no_name" label="Mutant Name"/>
-      <param name="input1" value="in1.tabular" ftype="tabular"/>
-      <param name="input2" value="in2.tabular" ftype="tabular"/>
-      <output name="out_file1" file="critint.txt"/>
-      <output name="out_file2" file="megamap1.png"/>
-      <output name="out_file3" file="megamap2.png"/>
-   </test>  
-  </tests>
 
   <help>
 GALAXY

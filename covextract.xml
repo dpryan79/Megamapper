@@ -1,5 +1,8 @@
 <tool id="covextractor" name="Coverage Extractor" version="0.0.1">
     <description>extracts SNP coverage from VCF4.1 files</description>
+    <requirements>
+        <requirement type="package">pyvcf</requirement>
+    </requirements>
     <command interpreter="python">
     covextract.py -f $input1 > $out_file1
     </command>

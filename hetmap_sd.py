@@ -6,6 +6,7 @@ import sys, re, tempfile, subprocess
 import os, shutil
 from galaxy import eggs
 
+
 def stop_err(msg):
     sys.stderr.write(msg)
     sys.exit()
@@ -14,17 +15,17 @@ def main():
 
     # Handle input params
     in_fname = sys.argv[1]
-    Mname = sys.argv[2]
-    chrom = sys.argv[3]
-    out_file1 = sys.argv[4]
-    out_file2 = sys.argv[5]
-    rscript_path = '/export/local_tools/MegaMapper/chrscan'
+    in_fname_wt = sys.argv[2]
+    out_file1 = sys.argv[3]
+    Mname = sys.argv[4]
+    rscript_path = '/export/local_tools/MegaMapper/custom/hetmap_Rscript.R'
 
     try:
     #prepare command line 
-        cmd  = 'Rscript --vanilla %s %s %s %s %s %s' %(rscript_path,in_fname,out_file1,out_file2,Mname,chrom)
+        cmd  = 'Rscript --vanilla %s %s %s %s "%s"' %(rscript_path, in_fname, in_fname_wt, out_file1, Mname )
         print cmd # for debugging 
         os.system(cmd)
+#        subprocess.Popen(args=cmd, shell=True).wait
 
     finally:
         sys.stdout.write( 'Megamapping complete.' )

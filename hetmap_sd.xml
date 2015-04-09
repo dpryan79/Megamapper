@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<tool id="hetmap_sd" name="Heterozygosity Map" version="0.0.1">
+  <description>plots heterozygous SNP frequencies</description>
+  <requirements>
+    <requirement type="package">R</requirement>
+  </requirements>
+  <command interpreter="python">hetmap_sd.py $input_mut $input_wt $out_file "$name"</command> 
+  <inputs>
+    <param name="name" type="text" size="30" value="YOUR_SAMPLE_NAME_HERE" label="Mutant Name"/>
+    <param name="input_mut" type="data" format="tabular" label="Mutant SNP Dataset" help="This needs to be the output of the Megamapper &quot;Coverage Extractor&quot; tool."/>
+    <param name="input_wt" type="data" format="tabular" label="WT SNP Dataset" help="This needs to be the output of the Megamapper &quot;Coverage Extractor&quot; tool."/>
+  </inputs>
+
+  <outputs>
+    <data format="png" name="out_file" />
+  </outputs>
+
+  <requirements>
+    <requirement type="python-module">rpy</requirement>
+  </requirements>
+
+  <help>
+Based on HMFseq MegaMapper by Nikolaus Obholzer, modified by Sarah Diehl.
+  </help>
+
+</tool>
+
+

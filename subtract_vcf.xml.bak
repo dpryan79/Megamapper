@@ -1,13 +1,17 @@
-<tool id="bed_intersect" name="SNP Intersector/ Subtractor" version="1.0.0">
+<tool id="custom_subtract_vcf" name="SNP Intersector/ Subtractor" version="1.0.0">
   <description>Intersect or subtract two VCF tables</description>
+  <requirements>
+    <requirement type="package">bedtools</requirement>
+  </requirements>
   <command interpreter="python">
-    NewIntersect.py
+    subtract_vcf.py
       --input1=$input1
       --input2=$input2
       --priority=$priority_file
       <!--dbkey=${input1.metadata.dbkey} -->
       --intersect=$intersect 
-      --output=$output1
+      --output1=$output1
+      --output2=$output2
   </command>
 
   <inputs>
@@ -22,11 +26,13 @@
     <param name="intersect" type="select" label="Intersect or complement" help="Keep records that appear in both files (intersect) or keep only unique records of A (complement)?">
       <option value="keep_intersect">Keep intersect (A in B)</option>
       <option value="keep_unique">Keep unique (A - B)</option>
+      <option value="keep_allele">Keep unique allele (A - B)</option>
     </param>
   </inputs>
 
   <outputs>
     <data format="vcf" name="output1" label="${tool.name} on ${on_string}" />
+    <data format="tabular" name="output2" label="${tool.name} on ${on_string} (statistics)" />
   </outputs>
  
   <tests>
@@ -43,7 +49,6 @@
 **What it does**
 
 This tool uses `Bedtools`_ intersectBed command to generate the intersection of two VCF files and keep the unique records of file 1.
-.. _Bedtools: http://code.google.com/p/bedtools/
 
 References:
 Quinlan AR and Hall IM, 2010. BEDTools: a flexible suite of utilities for comparing genomic features. Bioinformatics. 26, 6, pp. 841–842.
@@ -54,5 +59,6 @@ Two input VCF files are required as input and the intersection of these two file
 
 The record written to the output will come from the file specified in the "Priority File" argument. By default, the output comes from the first file (A).
 
+.. _Bedtools: http://code.google.com/p/bedtools/
   </help>
 </tool>

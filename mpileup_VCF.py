@@ -26,6 +26,7 @@ usage: %prog [options]
    -r, --fraction=r: Expected fraction of differences between a pair of haplotypes
    -P, --phredProb=I: Phred probability of an indel in sequencing/prep
    -X, --cmdline=$cmdline: X: additional command line options
+   -f, --fileName=f: filename to appear in the vcf
 
 """
 
@@ -91,9 +92,9 @@ def __main__():
 
     #get parameters for mpileup command
     if options.baq == 'yes':
-        baq = '-B'
-    else:
         baq = ''
+    else:
+        baq = '-B'
     if options.callindels == 'yes':
         callindels = ''
     else:
@@ -108,13 +109,13 @@ def __main__():
        fformat = '-u'
         
 
-#    opts = '%s -B -C %s -M %s -d %s -q %s -Q %s %s %s %s %s' % ( baq, options.mapCo, options.mapCap, options.readCap, options.mapq, options.baseq, callindels, indels, fformat, options.cmdline )
+    opts = '%s -C %s -M %s -d %s -q %s -Q %s %s %s %s %s' % ( baq, options.mapCo, options.mapCap, options.readCap, options.mapq, options.baseq, callindels, indels, fformat, options.cmdline )
  # use for debugging # 
-    opts = '-B -C 50 -q 30 -Q 30 -u ' #-r 10:20,000,000-21,000,000'
-    print options.cmdline #use for debugging
+#    opts = '-B -C 50 -q 30 -Q 30 -u '# -r 10:20,000,000-35,000,000'
+#    print options.cmdline #use for debugging
 
-#    if options.consensus == 'yes':
-#        opts  += ' -c'
+    if options.consensus == 'yes':
+        opts  += ' -c'
 #   print opts #use for debugging
 #    else:
 #   print opts #use for debugging
@@ -184,6 +185,8 @@ def __main__():
     if options.fformat == 'vcf':
         cmd = 'samtools mpileup %s -f %s %s | bcftools view -vcg - > %s' #| bcftools view -bvcg - > RAL_samtools.raw.bcf % ( opts, tmpf1_name, tmpf0bam_name, options.output1 ) 
         #print cmd # use for debugging
+	if options.fileName != "":
+		cmd = "samtools mpileup %s -f %s %s | bcftools view -vcg - | sed 's|"+ tmpf0bam_name + "|" + options.fileName + "|' > %s"
 
     else:
         cmd = 'samtools mpileup %s -f %s %s > %s'
@@ -247,28 +250,9 @@ def __main__():
             tmp_stderr.close()
             if returncode != 0:
                 print returncode
-
 #                raise Exception, stderr
         except Exception, e:
             stop_err( 'Error running Samtools mpileup tool\n' + str( e ) )
-
-
-        tmp_out = tempfile.NamedTemporaryFile( dir=tmpDir)
-        tmp_out_name = tmp_out.name
-        tmp_out.close()
-        try:
-            shutil.move( options.output1, tmp_out_name )
-        except Exception, e:
-            raise Exception, 'Error moving output file before removing headers. ' + str( e )
-        fout = file( options.output1, 'w' )
-
-        for line in file( tmp_out.name, 'r' ):
-            if ( line.startswith( 'chr' )):
-                fout.write( line[3:] )
-            else:
-                fout.write( line )
-        fout.close()
-
     finally:
         #clean up temp files
         if os.path.exists( tmpDir ):
