@@ -72,11 +72,11 @@ def __main__():
     nrBefore = float(subprocess.check_output(cmd, shell=True))
     
     if options.intersect == 'keep_intersect':
-        cmd = 'intersectBed -a %s -b %s > %s' % ( file1, file2, options.output1 )
+        cmd = 'intersectBed -header -sorted -a %s -b %s > %s' % ( file1, file2, options.output1 )
         subprocess.check_call(cmd, shell=True)
         print cmd
     elif options.intersect == 'keep_unique':
-        cmd = 'intersectBed -v -a %s -b %s > %s' % ( file1, file2, options.output1 )
+        cmd = 'intersectBed -v -header -sorted -a %s -b %s > %s' % ( file1, file2, options.output1 )
         subprocess.check_call(cmd, shell=True)
         print cmd
     elif options.intersect == 'keep_allele':
